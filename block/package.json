@@ -1,11 +1,11 @@
 {
   "name": "@platforma-open/milaboratories.humanization-score",
-  "version": "3.0.10",
+  "version": "5.0.4",
   "scripts": {
-    "build": "shx rm -rf block-pack/* && block-tools pack",
+    "build": "shx rm -rf ./block-pack && block-tools pack",
     "do-pack": "shx rm -f *.tgz && pnpm pack && shx mv *.tgz package.tgz",
     "mark-stable": "block-tools mark-stable -r 's3://milab-euce1-prod-pkgs-s3-block-registry/pub/releases/?region=eu-central-1'",
-    "prepublishOnly": "block-tools pack && block-tools publish -r 's3://milab-euce1-prod-pkgs-s3-block-registry/pub/releases/?region=eu-central-1'"
+    "prepublishOnly": "block-tools pack && block-tools publish --unstable -r 's3://milab-euce1-prod-pkgs-s3-block-registry/pub/releases/?region=eu-central-1'"
   },
   "files": [
     "index.d.ts",
@@ -23,28 +23,30 @@
       "ui": "@platforma-open/milaboratories.humanization-score.ui/dist"
     },
     "meta": {
-      "title": "Lead Selection",
+      "title": "Humanization Score",
       "logo": "file:../logos/block-logo.png",
-      "url": "https://github.com/platforma-open/antibody-tcr-lead-selection",
-      "docs": "https://docs.platforma.bio/guides/antibody-discovery/lead-selection/",
+      "url": "https://github.com/platforma-open/humanization-score",
+      "docs": "https://docs.platforma.bio/guides/antibody-discovery/humanization-score/",
       "support": "mailto:support@milaboratories.com",
-      "description": "Ranks and selects top lead candidates (antibodies, TCRs, or peptides) using configurable scoring, filtering, and diversified ranking with built-in workflow presets.",
+      "description": "Score antibody sequences for humanness (placeholder)",
       "longDescription": "file:../docs/description.md",
       "changelog": "file:../CHANGELOG.md",
       "tags": [
         "airr",
-        "downstream",
-        "peptide"
+        "antibody",
+        "peptide",
+        "downstream"
       ],
       "organization": {
         "name": "MiLaboratories Inc",
         "url": "https://milaboratories.com/",
         "logo": "file:../logos/organization-logo.png"
-      }
+      },
+      "marketplaceRanking": 15000
     }
   },
   "devDependencies": {
     "@platforma-sdk/block-tools": "catalog:"
   },
-  "packageManager": "pnpm@9.14.4"
+  "packageManager": "pnpm@9.12.0"
 }

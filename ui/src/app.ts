@@ -1,26 +1,17 @@
-import { getDefaultBlockLabel, platforma } from '@platforma-open/milaboratories.humanization-score.model';
-import { plRefsEqual } from '@platforma-sdk/model';
+import { allLiabilityTypeValues, getDefaultBlockLabel, platforma } from '@platforma-open/milaboratories.humanization-score.model';
 import { defineAppV3 } from '@platforma-sdk/ui-vue';
 import { watchEffect } from 'vue';
 import MainPage from './pages/MainPage.vue';
-import SelectionPage from './pages/SelectionPage.vue';
-import SpectratypePage from './pages/SpectratypePage.vue';
-import UmapPage from './pages/UmapPage.vue';
-import UsagePage from './pages/UsagePage.vue';
 
 export const sdkPlugin = defineAppV3(platforma, (app) => {
   app.model.data.customBlockLabel ??= '';
 
   syncDefaultBlockLabel(app.model);
+  syncModality(app.model);
 
   return {
-    progress: () => app.model.outputs.calculating,
     routes: {
       '/': () => MainPage,
-      '/umap': () => UmapPage,
-      '/spectratype': () => SpectratypePage,
-      '/usage': () => UsagePage,
-      '/selection': () => SelectionPage,
     },
   };
 });
@@ -29,16 +20,22 @@ export const useApp = sdkPlugin.useApp;
 
 type AppModel = ReturnType<typeof useApp>['model'];
 
+function syncModality(model: AppModel) {
+  watchEffect(() => {
+    const modality = model.outputs.modality;
+    if (modality !== undefined) {
+      model.data.modality = modality;
+    }
+  });
+}
+
 function syncDefaultBlockLabel(model: AppModel) {
   watchEffect(() => {
-    const datasetLabel = model.data.inputAnchor
-      ? model.outputs.inputOptions
-        ?.find((option) => plRefsEqual(option.ref, model.data.inputAnchor!))
-        ?.label
-      : undefined;
-
     model.data.defaultBlockLabel = getDefaultBlockLabel({
-      datasetLabel,
+      usePredefinedLiabilities: model.data.usePredefinedLiabilities ?? true,
+      disabledPredefinedLiabilities: model.data.disabledPredefinedLiabilities ?? [],
+      allLiabilityTypes: allLiabilityTypeValues,
+      customLiabilities: model.data.customLiabilities ?? [],
     });
   });
 }

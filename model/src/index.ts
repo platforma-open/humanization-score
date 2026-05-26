@@ -1,70 +1,141 @@
-import strings from '@milaboratories/strings';
 import type {
-  ColumnSource,
-  InferHrefType,
-  InferOutputsType,
-  PColumn,
-  PColumnDataUniversal,
-  PColumnIdAndSpec,
-  PColumnSpec,
+  ImportFileHandle,
+  PlDataTableStateV2,
   PlRef,
-  PTableSorting,
 } from '@platforma-sdk/model';
 import {
-  Annotation,
-  ArrayColumnProvider,
   BlockModelV3,
-  canonicalizeJson,
-  createPFrameForGraphs,
-  createPlDataTableV3,
-  deriveLabels,
-  isHiddenFromGraphColumn,
-  isHiddenFromUIColumn,
+  DataModelBuilder,
+  createPlDataTableStateV2,
+  createPlDataTableV2,
 } from '@platforma-sdk/model';
-import { buildCollection, commonExcludeSelectors, IN_VIVO_SCORE_COLUMN_ID, isClusterIdAxisName, isSelectableMatch, matchToColumnId } from './util';
-import { convertFilterUI, convertRankingOrderUI } from './converters';
-import { blockDataModel } from './dataModel';
-import type { BlockArgs } from './types';
+import { getDefaultBlockLabel } from './label';
+export type * from '@milaboratories/helpers';
 
-export * from './types';
-export * from './converters';
-export { getDefaultBlockLabel } from './util';
-export { blockDataModel } from './dataModel';
-export type Href = InferHrefType<typeof platforma>;
-export type BlockOutputs = InferOutputsType<typeof platforma>;
+export type Modality = 'antibody' | 'peptide';
 
-// Trace element types emitted by upstream clustering blocks. Lead-selection
-// pulls each linker's clustering label from these types when populating the
-// cluster-column dropdown; any new clustering producer must be added here.
-const CLUSTERING_TRACE_TYPES = [
-  'milaboratories.clonotype-clustering.clustering',
-  'milaboratories.3d-structure-clustering.clustering',
+export type CustomLiability = {
+  name: string;
+  pattern: string;
+  riskLevel: 'Low' | 'Medium' | 'High';
+  fixability: 'easily_fixable' | 'fixable' | 'hard_to_fix';
+  regions: string[];
+};
+
+type OldArgs = {
+  defaultBlockLabel: string;
+  customBlockLabel: string;
+  inputAnchor?: PlRef;
+  usePredefinedLiabilities?: boolean;
+  disabledPredefinedLiabilities?: string[];
+  customLiabilities?: CustomLiability[];
+  importFileHandle?: ImportFileHandle;
+  mem?: number;
+};
+
+type OldUiState = {
+  tableState: PlDataTableStateV2;
+};
+
+export type BlockData = {
+  defaultBlockLabel: string;
+  customBlockLabel: string;
+  inputAnchor?: PlRef;
+  modality?: Modality;
+  usePredefinedLiabilities?: boolean;
+  disabledPredefinedLiabilities?: string[];
+  customLiabilities?: CustomLiability[];
+  importFileHandle?: ImportFileHandle;
+  mem?: number;
+  tableState: PlDataTableStateV2;
+};
+
+export const liabilityTypes: {
+  value: string;
+  label: string;
+  pattern: string;
+  riskLevel: 'Low' | 'Medium' | 'High';
+  fixability: 'easily_fixable' | 'fixable' | 'hard_to_fix' | 'structural';
+  enabledByDefault: boolean;
+  /** Modalities for which this rule is offered. */
+  applicableTo: Modality[];
+}[] = [
+  { value: 'Deamidation (N[GS])', label: 'Deamidation (N[GS])', pattern: 'N[GS]', riskLevel: 'High', fixability: 'fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Fragmentation (DP)', label: 'Fragmentation (DP)', pattern: 'DP', riskLevel: 'High', fixability: 'fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Isomerization (D[DGHST])', label: 'Isomerization (D[DGHST])', pattern: 'D[DGHST]', riskLevel: 'High', fixability: 'fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'N-linked Glycosylation (N[^P][ST])', label: 'N-linked Glycosylation (N[^P][ST])', pattern: 'N[^P][ST]', riskLevel: 'High', fixability: 'fixable', enabledByDefault: true, applicableTo: ['antibody'] },
+  { value: 'Deamidation (N[AHNT])', label: 'Deamidation (N[AHNT])', pattern: 'N[AHNT]', riskLevel: 'Medium', fixability: 'easily_fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Hydrolysis (NP)', label: 'Hydrolysis (NP)', pattern: 'NP', riskLevel: 'Medium', fixability: 'fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Fragmentation (TS)', label: 'Fragmentation (TS)', pattern: 'TS', riskLevel: 'Medium', fixability: 'fixable', enabledByDefault: true, applicableTo: ['antibody'] },
+  { value: 'Tryptophan Oxidation (W)', label: 'Tryptophan Oxidation (W)', pattern: 'W', riskLevel: 'Medium', fixability: 'easily_fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Methionine Oxidation (M)', label: 'Methionine Oxidation (M)', pattern: 'M', riskLevel: 'Medium', fixability: 'easily_fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Deamidation ([STK]N)', label: 'Deamidation ([STK]N)', pattern: '[STK]N', riskLevel: 'Low', fixability: 'easily_fixable', enabledByDefault: true, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Integrin binding', label: 'Integrin binding', pattern: 'RGD|RYD|KGD|NGR|LDV|DGE|GPR', riskLevel: 'Low', fixability: 'easily_fixable', enabledByDefault: false, applicableTo: ['antibody', 'peptide'] },
+  { value: 'Missing Cysteines', label: 'Missing Cysteines', pattern: '—', riskLevel: 'High', fixability: 'structural', enabledByDefault: true, applicableTo: ['antibody'] },
+  { value: 'Extra Cysteines', label: 'Extra Cysteines', pattern: '—', riskLevel: 'High', fixability: 'hard_to_fix', enabledByDefault: true, applicableTo: ['antibody'] },
 ];
 
-export const platforma = BlockModelV3.create(blockDataModel)
+const defaultDisabled = liabilityTypes.filter((l) => !l.enabledByDefault).map((l) => l.value);
+const allLiabilityTypeValues = liabilityTypes.map((l) => l.value);
+const predefinedLiabilityNames = new Set(allLiabilityTypeValues);
 
-  .args<BlockArgs>((data) => {
-    if (data.inputAnchor === undefined) throw new Error('No input anchor');
-    if (data.topClonotypes === undefined) throw new Error('No top clonotypes');
+const dataModel = new DataModelBuilder()
+  .from<BlockData>('v1')
+  .upgradeLegacy<OldArgs, OldUiState>(({ args, uiState }) => ({
+    ...args,
+    tableState: uiState.tableState,
+  }))
+  .init(() => ({
+    defaultBlockLabel: getDefaultBlockLabel({
+      usePredefinedLiabilities: true,
+      disabledPredefinedLiabilities: defaultDisabled,
+      allLiabilityTypes: allLiabilityTypeValues,
+      customLiabilities: [],
+    }),
+    customBlockLabel: '',
+    usePredefinedLiabilities: true,
+    disabledPredefinedLiabilities: defaultDisabled,
+    customLiabilities: [],
+    tableState: createPlDataTableStateV2(),
+  }));
 
-    const rankingOrder = convertRankingOrderUI(data.rankingOrder);
-    if (rankingOrder.some((order) => order.value === undefined))
-      throw new Error('Incomplete ranking order');
-    const filters = convertFilterUI(data.filters);
-    if (filters.some((filter) => filter.value === undefined))
-      throw new Error('Incomplete filters');
+export const platforma = BlockModelV3.create(dataModel)
+
+  .args((data) => {
+    if (!data.inputAnchor) throw new Error('Input anchor is required');
+
+    const customs = data.customLiabilities ?? [];
+    const customNames = customs.map((c) => c.name);
+    if (customNames.length !== new Set(customNames).size) throw new Error('Duplicate custom liability names');
+    for (const c of customs) {
+      if (!c.name || !c.pattern) throw new Error('Custom liability must have name and pattern');
+      if (predefinedLiabilityNames.has(c.name)) throw new Error(`"${c.name}" collides with predefined liability name`);
+      try {
+        new RegExp(c.pattern);
+      } catch {
+        throw new Error(`Invalid regex: "${c.pattern}"`);
+      }
+      // Antibody mode: regions selection is required. Peptide mode: regions
+      // is unused (whole-sequence regex), so empty list is valid.
+      // data.modality defaults to undefined until synced; treat as antibody (conservative).
+      if (data.modality !== 'peptide' && (!c.regions || c.regions.length === 0))
+        throw new Error(`Custom liability "${c.name}" must have at least one region selected`);
+    }
 
     return {
       defaultBlockLabel: data.defaultBlockLabel,
       customBlockLabel: data.customBlockLabel,
       inputAnchor: data.inputAnchor,
-      topClonotypes: data.topClonotypes,
-      rankingOrder,
-      filters,
-      kabatNumbering: data.kabatNumbering,
-      diversificationColumn: data.diversificationColumn,
+      usePredefinedLiabilities: data.usePredefinedLiabilities,
+      disabledPredefinedLiabilities: data.disabledPredefinedLiabilities,
+      customLiabilities: data.customLiabilities,
+      importFileHandle: data.importFileHandle,
+      mem: data.mem,
     };
   })
+
+  // prerunArgs allows file import to run independently of whether inputAnchor is set
+  .prerunArgs((data) => ({ importFileHandle: data.importFileHandle }))
 
   .output('inputOptions', (ctx) =>
     ctx.resultPool.getOptions([{
@@ -85,525 +156,60 @@ export const platforma = BlockModelV3.create(blockDataModel)
         { name: 'pl7.app/variantKey' },
       ],
       annotations: { 'pl7.app/isAnchor': 'true' },
-    }], { refsWithEnrichments: true }),
+    }]),
   )
-
-  .output('inputAnchorSpec', (ctx) => {
-    const ref = ctx.data.inputAnchor;
-    if (ref === undefined) return undefined;
-    return ctx.resultPool.getPColumnSpecByRef(ref);
-  }, { retentive: true })
 
   .output('modality', (ctx) => {
     const ref = ctx.data.inputAnchor;
     if (ref === undefined) return undefined;
     const spec = ctx.resultPool.getPColumnSpecByRef(ref);
     if (!spec) return undefined;
-    return spec.axesSpec[1]?.name === 'pl7.app/variantKey' ? 'peptide' : 'antibody_tcr';
+    return spec.axesSpec[1]?.name === 'pl7.app/variantKey' ? 'peptide' : 'antibody';
   }, { retentive: true })
 
-  // Combined filter config - options and defaults together for atomic updates
-  .output('filterConfig', (ctx) => {
-    const result = buildCollection(ctx, ctx.data.inputAnchor);
-    if (!result) return undefined;
-
-    const filterableMatches = result.collection.findColumns({
-      mode: 'enrichment',
-      exclude: commonExcludeSelectors,
-    }).filter((m) => isSelectableMatch(m, result.sampleAxisName));
-
-    // deriveLabels replaces getDisambiguatedOptions
-    const labeled = deriveLabels(
-      filterableMatches,
-      (m) => m.column.spec,
-      { includeNativeLabel: true },
-    );
-    const options = labeled.map(({ value, label }) => ({
-      label,
-      value: matchToColumnId(value, ctx.data.inputAnchor!),
-      column: value.column,
-    }));
-
-    return {
-      options,
-      defaults: result.meta.defaultFilters,
-      inVivoDefaults: result.meta.inVivoDefaults.filters,
-      inVitroDefaults: result.meta.inVitroDefaults.filters,
-      inPeptideDefaults: result.meta.inPeptideDefaults.filters,
-    };
-  }, { retentive: true })
-
-  // Combined ranking config - options and defaults together for atomic updates
-  .output('rankingConfig', (ctx) => {
-    const result = buildCollection(ctx, ctx.data.inputAnchor);
-    if (!result) return undefined;
-
-    const rankableMatches = result.collection.findColumns({
-      mode: 'enrichment',
-      exclude: commonExcludeSelectors,
-    }).filter((m) =>
-      isSelectableMatch(m, result.sampleAxisName)
-      && m.column.spec.valueType !== 'String',
-    );
-
-    const labeled = deriveLabels(
-      rankableMatches,
-      (m) => m.column.spec,
-      { includeNativeLabel: true },
-    );
-    const options = labeled.map(({ value, label }) => ({
-      label,
-      value: matchToColumnId(value, ctx.data.inputAnchor!),
-    }));
-
-    // Add synthetic In Vivo Score option when mutation columns are present
-    if (result.meta.hasInVivoScore) {
-      options.unshift({
-        label: 'In Vivo Score',
-        value: {
-          anchorRef: ctx.data.inputAnchor!,
-          anchorName: 'main',
-          column: IN_VIVO_SCORE_COLUMN_ID,
-        },
-      });
-    }
-
-    return {
-      options,
-      defaults: result.meta.defaultRankingOrder,
-      inVivoDefaults: result.meta.inVivoDefaults.rankingOrder,
-      inVitroDefaults: result.meta.inVitroDefaults.rankingOrder,
-      inPeptideDefaults: result.meta.inPeptideDefaults.rankingOrder,
-    };
-  }, { retentive: true })
-
-  .output('presetConfig', (ctx) => {
-    const result = buildCollection(ctx, ctx.data.inputAnchor);
-    if (!result) return undefined;
-
-    return {
-      detectedPreset: result.meta.detectedPreset,
-      hasInVivoScore: result.meta.hasInVivoScore,
-      hasEnrichmentScores: result.meta.hasEnrichmentScores,
-    };
-  }, { retentive: true })
-
-  .outputWithStatus('pf', (ctx) => {
-    const anchor = ctx.data.inputAnchor;
-    if (!anchor) return undefined;
-
-    const result = buildCollection(ctx, anchor);
-    if (!result) return undefined;
-
-    // Restrict MSA to columns sharing the input-anchor clonotype axis (main
-    // dataset only). Cross-axis SC columns are excluded so PFrame never has
-    // to join disjoint axes for MSA. Also drop per-sample columns (axis set
-    // contains sampleAxis) — they'd duplicate rows in the alignment.
-    const anchorClonotypeAxisName = ctx.resultPool.getPColumnSpecByRef(anchor)
-      ?.axesSpec[1]?.name;
-    if (!anchorClonotypeAxisName) return undefined;
-
-    const msaMatches = result.collection.findColumns({
-      mode: 'enrichment',
-      exclude: [
-        { annotations: { 'pl7.app/isLinkerColumn': 'true' } },
-      ],
-    }).filter((m) =>
-      !isHiddenFromUIColumn(m.column.spec)
-      && !isHiddenFromGraphColumn(m.column.spec)
-      && m.column.spec.axesSpec.some((a) => a.name === anchorClonotypeAxisName)
-      && !m.column.spec.axesSpec.some((a) => a.name === result.sampleAxisName),
-    );
-
-    const pCols: PColumn<PColumnDataUniversal>[] = [];
-    for (const m of msaMatches) {
-      if (!m.column.data) continue;
-      const data = m.column.data.get();
-      if (!data) return undefined;
-      pCols.push({ id: m.column.id, spec: m.column.spec, data });
-    }
-    return ctx.createPFrame(pCols);
-  })
-
-  // Use the cdr3LengthsCalculated cols
-  .outputWithStatus('spectratypePf', (ctx) => {
-    const pCols = ctx.outputs?.resolve({
-      field: 'cdr3VspectratypePf',
-      assertFieldType: 'Input',
-      allowPermanentAbsence: true,
-    })?.getPColumns();
-    if (pCols === undefined) return undefined;
-
-    return createPFrameForGraphs(ctx, pCols);
-  })
-
-  // Use the cdr3LengthsCalculated cols
-  .outputWithStatus('vjUsagePf', (ctx) => {
-    const pCols = ctx.outputs?.resolve({
-      field: 'vjUsagePf',
-      assertFieldType: 'Input',
-      allowPermanentAbsence: true,
-    })?.getPColumns();
-    if (pCols === undefined) return undefined;
-
-    return createPFrameForGraphs(ctx, pCols);
-  })
-
-  .outputWithStatus('selectionStagePf', (ctx) => {
-    const pCols = ctx.outputs?.resolve({
-      field: 'selectionStagePf',
-      assertFieldType: 'Input',
-      allowPermanentAbsence: true,
-    })?.getPColumns();
-    if (pCols === undefined) return undefined;
-
-    return createPFrameForGraphs(ctx, pCols);
-  })
-
-  .outputWithStatus('table', (ctx) => {
-    const anchor = ctx.activeArgs?.inputAnchor;
-    if (!anchor) return undefined;
-
-    // Don't render table until workflow has been executed
-    if (!ctx.outputs) return undefined;
-
-    const anchorSpec = ctx.resultPool.getPColumnSpecByRef(anchor);
-    if (!anchorSpec) return undefined;
-
-    // Resolve the sampledRows output
-    const sampledRowsAccessor = ctx.outputs.resolve({
-      field: 'sampledRows',
-      assertFieldType: 'Input',
-      allowPermanentAbsence: true,
-    });
-
-    const sampledRows = sampledRowsAccessor?.getPColumns();
-    const sampledRowsAreFinal = sampledRowsAccessor?.getIsFinal() ?? false;
-
-    // Don't render table if sampledRows don't exist or aren't finalized
-    if (sampledRows === undefined || !sampledRowsAreFinal) {
+  .outputWithStatus('pt', (ctx) => {
+    const pCols = ctx.outputs?.resolve('outputLiabilities')?.getPColumns();
+    if (pCols === undefined) {
       return undefined;
     }
-
-    // Verify sampledRows belong to current inputAnchor by checking axes
-    const samplingCol = sampledRows.find(
-      (col) => col.spec.name === 'pl7.app/lead-selection',
+    return createPlDataTableV2(
+      ctx,
+      pCols,
+      ctx.data.tableState,
     );
-    if (samplingCol !== undefined) {
-      const clonotypeAxisMatches = samplingCol.spec.axesSpec.some(
-        (axis) => JSON.stringify(axis) === JSON.stringify(anchorSpec.axesSpec[1]),
-      );
-      if (!clonotypeAxisMatches) {
-        return undefined;
-      }
-    }
-
-    const assemblingKabatAccessor = ctx.outputs?.resolve({
-      field: 'assemblingKabatPf',
-      assertFieldType: 'Input',
-      allowPermanentAbsence: true,
-    });
-
-    const resultPoolColumns = ctx.resultPool.selectColumns(
-      (spec) => (spec.valueType as string) !== 'File'
-        && !(spec.annotations?.['pl7.app/isLinkerColumn'] === 'true' && spec.axesSpec.length > 2)
-        && !spec.annotations?.[Annotation.Trace]?.includes('antibody-tcr-lead-selection'),
-    );
-    const sources: ColumnSource[] = [
-      new ArrayColumnProvider(resultPoolColumns),
-      new ArrayColumnProvider(sampledRows),
-    ];
-    if (assemblingKabatAccessor) {
-      const kabatCols = assemblingKabatAccessor.getPColumns();
-      if (kabatCols) sources.push(new ArrayColumnProvider(kabatCols));
-    }
-
-    // Use lead-selection column as anchor — it has [clonotypeKey] axis only,
-    // so the inner join core is keyed by clonotypeKey (no sampleId duplication).
-    const leadSelectionCol = sampledRows.find(
-      (col) => col.spec.name === 'pl7.app/lead-selection',
-    );
-    if (!leadSelectionCol) return undefined;
-
-    // Build filter/ranking spec lookup for columnsDisplayOptions matchers.
-    // Match by spec signature (name + domain) since ColumnMatcher receives spec, not ID.
-    const filterColumnIds = new Set<string>(
-      ctx.activeArgs?.filters
-        .filter((f) => f.value?.column !== undefined)
-        .map((f) => f.value!.column as string),
-    );
-    const rankingColumnIds = new Set<string>(
-      ctx.activeArgs?.rankingOrder
-        .filter((r) => r.value?.column !== undefined)
-        .map((r) => r.value!.column as string),
-    );
-    const kabatEnabled = ctx.activeArgs?.kabatNumbering ?? false;
-
-    const collectionResult = buildCollection(ctx, anchor);
-    const filterRankSpecs = new Set<string>();
-    if (collectionResult) {
-      for (const m of collectionResult.meta.allMatches) {
-        const idStr = m.column.id as string;
-        if (filterColumnIds.has(idStr) || rankingColumnIds.has(idStr)) {
-          filterRankSpecs.add(canonicalizeJson({
-            name: m.column.spec.name,
-            domain: m.column.spec.domain,
-          }));
-        }
-      }
-    }
-    const isFilterOrRank = (spec: PColumnSpec): boolean =>
-      filterRankSpecs.has(canonicalizeJson({ name: spec.name, domain: spec.domain }));
-
-    // Sort by ranking-order column (from sampledRows). V3 remaps the ID via originalId.
-    const rankingOrderCol = sampledRows.find(
-      (col) => col.spec.name === 'pl7.app/ranking-order',
-    );
-    const sorting: PTableSorting[] | undefined = rankingOrderCol
-      ? [{
-          column: { type: 'column', id: rankingOrderCol.id },
-          ascending: true,
-          naAndAbsentAreLeastValues: false,
-        }]
-      : undefined;
-
-    return createPlDataTableV3(ctx, {
-      columns: {
-        sources,
-        anchors: { main: leadSelectionCol.spec },
-        selector: { mode: 'enrichment' },
-      },
-      tableState: ctx.data.tableState,
-      primaryJoinType: 'full',
-      sorting,
-      labelsOptions: {
-        formatters: {
-          linker: (labels, spec) =>
-            (spec as PColumnSpec).axesSpec.some((a) => isClusterIdAxisName(a.name))
-              ? undefined
-              : `via ${labels.join(' > ')}`,
-        },
-      },
-      displayOptions: {
-        ordering: [
-          {
-            match: (spec) => spec.name === Annotation.Label
-              && spec.axesSpec.length === 1
-              && (spec.axesSpec[0].name === 'pl7.app/vdj/clonotypeKey'
-                || spec.axesSpec[0].name === 'pl7.app/vdj/scClonotypeKey'
-                || spec.axesSpec[0].name === 'pl7.app/variantKey'),
-            priority: 1000000,
-          },
-          {
-            match: (spec) => {
-              const isAa = spec.domain?.['pl7.app/alphabet'] === 'aminoacid';
-              const isVdj = spec.annotations?.['pl7.app/vdj/isAssemblingFeature'] === 'true'
-                && spec.annotations?.['pl7.app/vdj/isMainSequence'] === 'true';
-              const isPeptide = spec.annotations?.['pl7.app/isAssemblingFeature'] === 'true'
-                && spec.annotations?.['pl7.app/isMainSequence'] === 'true';
-              return isAa && (isVdj || isPeptide);
-            },
-            priority: 999000,
-          },
-          {
-            match: isFilterOrRank,
-            priority: 7000,
-          },
-        ],
-        visibility: [
-          {
-            match: (spec) =>
-              spec.name === 'pl7.app/ranking-order'
-              || spec.name === 'pl7.app/vdj/inVivoScore'
-              || isFilterOrRank(spec)
-              || (spec.name === Annotation.Label
-                && spec.axesSpec.length === 1
-                && (spec.axesSpec[0].name === 'pl7.app/vdj/clonotypeKey'
-                  || spec.axesSpec[0].name === 'pl7.app/vdj/scClonotypeKey'
-                  || spec.axesSpec[0].name === 'pl7.app/variantKey'))
-                || (spec.annotations?.['pl7.app/vdj/isAssemblingFeature'] === 'true'
-                  && spec.annotations?.['pl7.app/vdj/isMainSequence'] === 'true'
-                  && spec.domain?.['pl7.app/alphabet'] === 'aminoacid')
-                || (spec.annotations?.['pl7.app/isAssemblingFeature'] === 'true'
-                  && spec.annotations?.['pl7.app/isMainSequence'] === 'true'
-                  && spec.domain?.['pl7.app/alphabet'] === 'aminoacid')
-                || (kabatEnabled && spec.name.startsWith('pl7.app/vdj/kabatSequence')),
-            visibility: 'default',
-          },
-          // Clone-to-cluster mapping (name: pl7.app/clusterId, axes: [clonotypeKey])
-          // is always hidden — it duplicates the clusterId axis label column.
-          {
-            match: (spec) => isClusterIdAxisName(spec.name),
-            visibility: 'hidden',
-          },
-          // Catch-all: everything else optional (except linkers — V3 manages those)
-          {
-            match: (spec) => spec.annotations?.['pl7.app/isLinkerColumn'] !== 'true',
-            visibility: 'optional',
-          },
-        ],
-      },
-    });
-  })
-
-  .output('calculating', (ctx) => {
-    if (ctx.data.inputAnchor === undefined)
-      return false;
-
-    if (!ctx.outputs) return false;
-
-    const outputsState = ctx.outputs.getIsReadyOrError();
-    if (outputsState === false) return true;
-
-    return false;
-  })
-
-  // Use UMAP output from ctx from clonotype-space block
-  .outputWithStatus('umapPf', (ctx) => {
-    const anchor = ctx.data.inputAnchor;
-    if (anchor === undefined)
-      return undefined;
-
-    const umap = ctx.resultPool.getAnchoredPColumns(
-      { main: anchor },
-      [
-        {
-          axes: [{ anchor: 'main', idx: 1 }],
-          namePattern: '^pl7\\.app/umap[12]$',
-        },
-      ],
-    );
-
-    if (umap === undefined || umap.length === 0)
-      return undefined;
-
-    const sampledRows = ctx.outputs?.resolve({ field: 'sampledRows', assertFieldType: 'Input', allowPermanentAbsence: true })?.getPColumns();
-
-    return createPFrameForGraphs(ctx, [...umap, ...(sampledRows ?? [])]);
-  })
-
-  .outputWithStatus('umapPcols', (ctx) => {
-    const anchor = ctx.data.inputAnchor;
-    if (anchor === undefined)
-      return undefined;
-
-    const umap = ctx.resultPool.getAnchoredPColumns(
-      { main: anchor },
-      [
-        {
-          axes: [{ anchor: 'main', idx: 1 }],
-          namePattern: '^pl7\\.app/umap[12]$',
-        },
-      ],
-    );
-
-    if (umap === undefined || umap.length === 0)
-      return undefined;
-
-    const sampledRows = ctx.outputs?.resolve({ field: 'sampledRows', assertFieldType: 'Input', allowPermanentAbsence: true })?.getPColumns();
-
-    return [...umap, ...(sampledRows ?? [])].map(
-      (c) =>
-        ({
-          columnId: c.id,
-          spec: c.spec,
-        } satisfies PColumnIdAndSpec),
-    );
-  })
-
-  .output('hasClusterData', (ctx) => {
-    const result = buildCollection(ctx, ctx.data.inputAnchor);
-    if (!result) return false;
-
-    return result.meta.allMatches.some((m) =>
-      m.column.spec.axesSpec.some((a) => isClusterIdAxisName(a.name)),
-    );
-  })
-
-  .output('clusterColumnOptions', (ctx) => {
-    const anchor = ctx.data.inputAnchor;
-    if (anchor === undefined)
-      return undefined;
-
-    const anchorSpec = ctx.resultPool.getPColumnSpecByRef(anchor);
-    if (anchorSpec === undefined)
-      return undefined;
-
-    // Get linker columns using the same iteration order as util.ts
-    const options: Array<{ label: string; ref: PlRef }> = [];
-
-    for (const idx of [0, 1]) {
-      let axesToMatch;
-      if (idx === 0) {
-        axesToMatch = [{}, anchorSpec.axesSpec[1]];
-      } else {
-        axesToMatch = [anchorSpec.axesSpec[1], {}];
-      }
-
-      const linkers = ctx.resultPool.getOptions([
-        {
-          axes: axesToMatch,
-          annotations: { 'pl7.app/isLinkerColumn': 'true' },
-        },
-      ], {
-        label: {
-          forceTraceElements: CLUSTERING_TRACE_TYPES,
-        },
-      });
-
-      for (const link of linkers) {
-        const linkerSpec = ctx.resultPool.getPColumnSpecByRef(link.ref);
-        if (!linkerSpec?.axesSpec.some((axis) => isClusterIdAxisName(axis.name))) {
-          continue;
-        }
-        // Extract clustering trace element label directly to avoid verbose
-        // disambiguation when vdj-integration linkers are present in the pool.
-        let label = 'Cluster';
-        try {
-          const trace = JSON.parse(linkerSpec.annotations?.['pl7.app/trace'] ?? '[]') as { type?: string; label?: string }[];
-          const clusteringElement = trace.find((t) => CLUSTERING_TRACE_TYPES.includes(t.type ?? ''));
-          if (clusteringElement?.label) label = clusteringElement.label;
-        } catch { /* use default */ }
-        options.push({ label, ref: link.ref });
-      }
-    }
-
-    return options.length > 0 ? options : undefined;
-  })
-
-  .output('kabatWarning', (ctx) => {
-    if (!ctx.data.kabatNumbering) return undefined;
-    const numbered = parseInt(ctx.outputs?.resolve({ field: 'kabatStatsContent', assertFieldType: 'Input', allowPermanentAbsence: true })?.getDataAsString() ?? '', 10);
-    if (Number.isNaN(numbered)) return undefined;
-    if (numbered === 0) {
-      return 'Kabat numbering could not be applied to any clonotype. The framework regions may be too divergent from known germline sequences. Kabat sequence columns will be empty.';
-    }
-    return `Kabat numbering was applied to ${numbered.toLocaleString()} clonotype${numbered === 1 ? '' : 's'}. Clonotypes that could not be numbered will have empty Kabat sequence columns.`;
   })
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
 
-  .title(() => 'Lead Selection')
+  // isActive forces this output to be evaluated even when nothing subscribes to it.
+  // That evaluation is what drives the file upload: getImportProgress() causes the
+  // underlying context to begin the upload for each pending ImportFileHandle.
+  // Without isActive, the output is never rendered and the prerun never resolves.
+  .output('prerunFileImports', (ctx) => {
+    return Object.fromEntries(
+      ctx.prerun
+        ?.resolve({ field: 'fileImports', assertFieldType: 'Input' })
+        ?.mapFields(
+          (handle, acc) => [handle as ImportFileHandle, acc.getImportProgress()],
+          { skipUnresolved: true },
+        ) ?? [],
+    );
+  }, { isActive: true })
+
+  // Blob handle for the uploaded file, readable by ReactiveFileContent in the UI
+  .retentiveOutput('importedFile', (ctx) =>
+    ctx.prerun?.resolveAny({ field: 'importedFile' })?.getFileHandle(),
+  )
+
+  .title(() => 'Sequence Liabilities')
 
   .subtitle((ctx) => ctx.data.customBlockLabel || ctx.data.defaultBlockLabel)
 
-  .sections((ctx) => {
-    const ref = ctx.data?.inputAnchor;
-    const isPeptide = ref !== undefined
-      && ctx.resultPool.getPColumnSpecByRef(ref)?.axesSpec[1]?.name === 'pl7.app/variantKey';
-
-    const sections: Array<{ type: 'link'; href: `/${string}`; label: string }> = [
-      { type: 'link', href: '/', label: strings.titles.main },
-      { type: 'link', href: '/umap', label: isPeptide ? 'Peptide Space' : 'Clonotype Space' },
-      { type: 'link', href: '/selection', label: 'Selection Plot' },
-    ];
-    if (!isPeptide) {
-      sections.push(
-        { type: 'link', href: '/spectratype', label: 'CDR3 V Spectratype' },
-        { type: 'link', href: '/usage', label: 'V/J Gene Usage' },
-      );
-    }
-    return sections;
-  })
+  .sections((_) => [
+    { type: 'link', href: '/', label: 'Table' },
+  ])
 
   .done();
+
+export { getDefaultBlockLabel } from './label';
+export { allLiabilityTypeValues, predefinedLiabilityNames };

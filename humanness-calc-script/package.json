@@ -1,0 +1,60 @@
+{
+  "name": "@platforma-open/milaboratories.humanization-score.humanness-calc-script",
+  "version": "6.0.0",
+  "scripts": {
+    "build": "pl-pkg build",
+    "prepublish": "pl-pkg prepublish",
+    "do-pack": "shx rm -f *.tgz && pl-pkg build && pnpm pack && shx mv platforma-open*.tgz package.tgz",
+    "changeset": "changeset",
+    "version-packages": "changeset version"
+  },
+  "files": [
+    "./dist/**/*"
+  ],
+  "dependencies": {
+    "@platforma-open/milaboratories.runenv-python-3": "catalog:"
+  },
+  "devDependencies": {
+    "@platforma-sdk/package-builder": "catalog:"
+  },
+  "block-software": {
+    "entrypoints": {
+      "main": {
+        "binary": {
+          "artifact": {
+            "type": "python",
+            "registry": "platforma-open",
+            "environment": "@platforma-open/milaboratories.runenv-python-3:3.12.10",
+            "dependencies": {
+              "toolset": "pip",
+              "requirements": "requirements.txt"
+            },
+            "root": "./src"
+          },
+          "cmd": [
+            "python",
+            "{pkg}/main.py"
+          ]
+        }
+      },
+      "peptide": {
+        "binary": {
+          "artifact": {
+            "type": "python",
+            "registry": "platforma-open",
+            "environment": "@platforma-open/milaboratories.runenv-python-3:3.12.10",
+            "dependencies": {
+              "toolset": "pip",
+              "requirements": "requirements.txt"
+            },
+            "root": "./src"
+          },
+          "cmd": [
+            "python",
+            "{pkg}/peptide_main.py"
+          ]
+        }
+      }
+    }
+  }
+}

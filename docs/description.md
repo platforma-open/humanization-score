@@ -1,34 +1,15 @@
 # Overview
 
-Ranks and selects top lead candidates — antibodies, TCRs, or peptides — using configurable scoring metrics, filters, and diversified ranking to prioritize the most promising candidates for downstream characterization and development. The block compiles calculated scores from upstream analysis blocks (e.g., enrichment scores, differential abundance, pairing scores, sequence liabilities, sequence properties) into a comprehensive table and enables multi-criteria ranking to identify optimal lead candidates.
+Identifies sequence liabilities in antibody/TCR or peptide amino acid sequences and classifies them by fixability — how tractable each liability is to engineer away. This lets you distinguish candidates that need a quick conservative substitution from those requiring significant reengineering or that are not viable.
 
-## Workflow presets
+The block evaluates sequences for deamidation (`N[GS]`, `N[AHNT]`, `[STK]N`), fragmentation (`DP`, `TS`), isomerization (`D[DGHST]`), N-linked glycosylation (`N[^P][ST]`), oxidation-prone residues (tryptophan, methionine), cysteine issues (missing or extra), and integrin binding motifs. The set of applicable rules adapts to modality: antibody/TCR inputs are evaluated per CDR and framework region and include architecture-specific cysteine and hinge-fragmentation checks, while peptide inputs apply a flat backbone-chemistry rule set without region or cysteine-architecture checks.
 
-The block offers built-in presets for common discovery workflows:
+Two output columns are emitted for both modalities:
 
-* **In Vivo (immunization/infection):** Ranks antibody/TCR candidates by In Vivo Score, a composite metric calculated from clonal expansion, CDR mutation frequency, and germinal center selection signals. Applies default filters on mutation-related metrics (e.g., fraction of CDR mutations, total number of mutations) to focus on immune-refined candidates.
-* **In Vitro (display/panning):** Ranks antibody/TCR candidates by enrichment scores across selection rounds to identify clones selected for target binding.
-* **Peptide:** Ranks peptide candidates by all available numeric score columns (typically enrichment, sequence properties, and liabilities). Suited for peptide selection campaigns where SHM-based metrics are not applicable.
+- **Developability risk** — `None` / `Low` / `Medium` / `High` / `Very High` / `Non-Developable`: engineering severity for fixable liabilities at the lower end of the scale; `Very High` when a Hard to fix liability is present (e.g. Extra Cysteines); `Non-Developable` when a Structural liability is present (e.g. Missing Cysteines)
+- **Developability cost** — continuous score: sum of engineering effort weighted by fixability class (antibody mode also weights by region importance); lower = easier to engineer
 
- Presets configure default filters and ranking criteria that can be further customized by the user.
+Antibody/TCR inputs additionally produce:
+- **Is Productive** — `Pass`/`Fail`: fails on stop codons or out-of-frame sequences
 
-## Filtering and ranking
-
-The block first filters candidates using threshold-based criteria on any score column, then ranks the filtered candidates based on multiple scoring metrics with configurable priority order and direction (increasing or decreasing).
-
-## Diversified ranking
-
-The ranking behavior adapts based on available cluster data and user configuration:
-
-* When cluster information is unavailable or diversification is explicitly disabled, candidates are ranked directly by sequence-level properties and the top N are selected.
-* When cluster data is available, diversified ranking is applied across clusters to ensure diversity in the selected panel while respecting the ranking order.
-* When multiple cluster columns are available from different upstream clustering blocks, users can specify which cluster column to use for diversification.
-
-## Visualizations
-
-The block provides interactive visualizations to help evaluate and compare selected leads:
-
-* **Sequence Space UMAP** — available for all modalities; visualizes the projected sequence space.
-* **CDR3 spectratype distributions** and **V/J gene usage patterns** — antibody/TCR only; hidden for peptide inputs.
-
-These visualizations consolidate multiple data sources and enable data-driven prioritization of candidates for further experimental validation.
+You can extend the predefined liability set with custom motifs defined in the block settings or imported from a JSON file.
