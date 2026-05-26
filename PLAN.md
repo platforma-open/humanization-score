@@ -180,4 +180,30 @@
 
 | Дата | Шаг | Исполнитель | Итог |
 |------|-----|-------------|------|
-| _в работе_ | §4 копирование скафолда из `antibody-sequence-liabilities` | сабагент | — |
+| 2026-05-26 | §4 копирование скафолда из `antibody-sequence-liabilities` | сабагент | Готово. Источник: коммит `ff07500` от 2026-05-26. Старый скафолд (от `antibody-tcr-lead-selection`) удалён, заменён на `antibody-sequence-liabilities`. Сохранены `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md`, `.pnpm-store/`. Имена пакетов переименованы (`antibody-sequence-liabilities` → `humanization-score`). Директория `liabilities-calc-script/` → `humanness-calc-script/`. Обновлены `block.meta.title` = "Humanization Score", `meta.description` = placeholder, `meta.url`/`meta.docs` указывают на humanization-score. `git status`: 97 изменений, ничего не закоммичено. `pnpm install` не запускался. |
+| 2026-05-26 | Шаг A: `pnpm build` зелёный | сабагент | Build OK с нуля, правок не потребовалось. Собраны 9 задач: model, ui, workflow (tengo), humanness-calc-script, block-pack. WARN'ы: `${NPMJS_TOKEN}` в `.npmrc` (только для publish), vite chunk-size в `ui/dist` (preexisting). |
+| 2026-05-26 | Шаг B: stub-логика humanness | сабагент | Build OK + Python tests 6/6 зелёные. Stub-функция: `100 * (доля стандартных AA) / len(seq)`, диапазон 0..100, детерминированная. Выходной PColumn: одна колонка `humanness_score: Double` со спекой `pl7.app/humannessScore`, label "Humanness Score". Работает для clonotype и peptide веток. `pl7.app/isScore` НЕ выставлен (open question). Удалены `annotations.py`/`definitions.py`/`detection.py`/`scoring.py` из python-скрипта. 15 файлов изменено, ничего не закоммичено. |
+
+### Шаг B — хвосты (от сабагента)
+
+Это «недоделки» stub-этапа, которые НЕ блокируют запуск, но потребуют внимания:
+
+1. **Реальный скорер** — главное продолжение. Заменить `humanness_stub` в `humanness-calc-script/src/main.py` и в `peptide_main.py` на вызов выбранного tool'а.
+2. **`pl7.app/isScore`** — решить, выставлять ли `true` (с `rankingOrder: "decreasing"`) для участия в Lead Selection. Сейчас колонка просто видна, но не участвует в ранжировании.
+3. **UI настроечная панель** — всё ещё показывает predefined/custom liabilities controls; workflow их игнорирует. Удалить либо переделать под параметры реального скорера.
+4. **`model/src/index.ts`** — типы `CustomLiability`, валидация, аргументы `usePredefinedLiabilities`/`disabledPredefinedLiabilities`/`customLiabilities` оставлены как dead-code, не влияют на работу. Подчистить, когда будет ясно, какие args нужны реальному скореру.
+5. **Tengo `clonotype-liabilities.tpl.tengo`** — получает и игнорирует liability-specific args. Косметика, не блокирует.
+6. **Trace type** сменён на `milaboratories.humanization-score` — если у Lead Selection есть привязка к `milaboratories.sequence-liabilities`, нужна сверка.
+7. **Workflow `bundleBuilder`** — собирает sequences + annotations + peptide-секвенции. Реальному скореру может хватить только полной цепи или CDR3 — пересмотрим, когда будет известна спецификация tool'а.
+
+### §4 — что осталось (нужны решения / не код)
+
+Это «хвост» скафолд-этапа, фиксирую отдельно, чтобы не потерять:
+
+1. **Логотипы** `logos/block-logo.png`, `logos/organization-logo.png` — сейчас от sequence-liabilities, нужны свои (или временно оставить, если ОК).
+2. **`docs/description.md`** (`block.meta.longDescription`) — переписать под humanization score, финал в §9.
+3. **`block.meta`**: финальные `title`, `description`, `docs`-URL, `tags`, `marketplaceRanking`. Сейчас placeholder.
+4. **`CHANGELOG.md`** во всех пакетах содержит историю `antibody-sequence-liabilities` — почистить перед первым релизом.
+5. **`version`** во всех `package.json` — сбросить к `0.1.0` (сейчас унаследованы версии источника).
+6. ~~**`pnpm install`** — запустить для регенерации `pnpm-lock.yaml` под новые имена пакетов и установки `node_modules`.~~ ✅ 2026-05-26: выполнено, exit=0. Предупреждения: 6 deprecated subdependencies (transitive, неблокирующие) + peer-dep warnings.
+7. **Бизнес-логика** — сейчас под капотом реализация sequence-liabilities (workflow tengo, model TS, UI, python-скрипт). Это будет вычищаться / переписываться на следующих шагах плана (§5–§7), а не здесь.

@@ -201,7 +201,7 @@ export const platforma = BlockModelV3.create(dataModel)
     ctx.prerun?.resolveAny({ field: 'importedFile' })?.getFileHandle(),
   )
 
-  .title(() => 'Sequence Liabilities')
+  .title(() => 'Humanness Score')
 
   .subtitle((ctx) => ctx.data.customBlockLabel || ctx.data.defaultBlockLabel)
 

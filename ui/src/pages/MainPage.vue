@@ -275,7 +275,7 @@ watch(
   <PlBlockPage
     v-model:subtitle="app.model.data.customBlockLabel"
     :subtitle-placeholder="app.model.data.defaultBlockLabel"
-    title="Sequence Liabilities"
+    title="Humanness Score"
   >
     <template #append>
       <PlBtnGhost @click.stop="settingsIsShown = true">

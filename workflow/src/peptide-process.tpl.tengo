@@ -1,6 +1,5 @@
 // Peptide-mode post-processing. Imports the result TSV from peptide-liabilities.tpl.tengo
-// as a pframe with the variantKey axis and 3 modality-neutral output columns:
-// developabilityRisk, developabilityScore, sequenceLiabilitiesSummary.
+// as a pframe with the variantKey axis and a single humanness_score column.
 
 self := import("@platforma-sdk/workflow-tengo:tpl")
 xsv := import("@platforma-sdk/workflow-tengo:pframes.xsv")
@@ -36,8 +35,6 @@ self.body(func(args) {
         }
     ]
 
-    riskDiscreteValues := string(json.encode(["None", "Low", "Medium", "High"]))
-
     columns := [
         {
             column: "peptide_aa",
@@ -61,74 +58,32 @@ self.body(func(args) {
             }
         },
         {
-            column: "developability_risk",
-            id: "developabilityRisk",
+            column: "humanness_score",
+            id: "humannessScore",
             naRegex: "",
             allowNA: true,
             spec: {
-                name: "pl7.app/developabilityRisk",
-                valueType: "String",
-                annotations: {
-                    "pl7.app/label": "Developability risk",
-                    "pl7.app/description": "Maximum risk level across engineering-fixable liabilities matched in the peptide sequence.",
-                    "pl7.app/isScore": "true",
-                    "pl7.app/isDiscreteFilter": "true",
-                    "pl7.app/discreteValues": riskDiscreteValues,
-                    "pl7.app/score/rankingOrder": "increasing",
-                    "pl7.app/score/defaultCutoff": string(json.encode(["None", "Low"])),
-                    "pl7.app/table/visibility": "default",
-                    "pl7.app/table/orderPriority": "105"
-                }
-            }
-        },
-        {
-            column: "developability_cost",
-            id: "developabilityScore",
-            naRegex: "",
-            allowNA: true,
-            spec: {
-                name: "pl7.app/developabilityScore",
+                name: "pl7.app/humannessScore",
                 valueType: "Double",
                 annotations: {
-                    "pl7.app/label": "Developability cost",
-                    "pl7.app/description": "Lower is better. Sum of fixability weights across all non-disqualifying liabilities (flat per-peptide scoring; no region weights since peptides have no regions).",
-                    "pl7.app/isScore": "true",
-                    "pl7.app/score/rankingOrder": "increasing",
+                    "pl7.app/label": "Humanness Score",
+                    "pl7.app/description": "Stub humanness score in [0, 100]. STUB: replace with real scorer in next step.",
                     "pl7.app/table/visibility": "default",
-                    "pl7.app/table/orderPriority": "104",
+                    "pl7.app/table/orderPriority": "100",
                     "pl7.app/format": ".2~f"
-                }
-            }
-        },
-        {
-            column: "liabilities_summary",
-            id: "sequence-liabilities-summary",
-            naRegex: "",
-            allowNA: true,
-            spec: {
-                name: "pl7.app/sequenceLiabilitiesSummary",
-                valueType: "String",
-                annotations: {
-                    "pl7.app/label": "Sequence liabilities summary",
-                    "pl7.app/isSummary": "true",
-                    "pl7.app/table/visibility": "default",
-                    "pl7.app/table/orderPriority": "100"
                 }
             }
         }
     ]
 
-    // Pick export columns (score / summary), tagging blockId in domain.
+    // All columns are exported; tag blockId in domain.
     exportColumns := []
     for col in columns {
-        if (col.spec.annotations && col.spec.annotations["pl7.app/isScore"] == "true") ||
-            (col.spec.annotations && col.spec.annotations["pl7.app/isSummary"] == "true") {
-            if !col.spec.domain {
-                col.spec.domain = {}
-            }
-            col.spec.domain["pl7.app/blockId"] = blockId
-            exportColumns += [col]
+        if !col.spec.domain {
+            col.spec.domain = {}
         }
+        col.spec.domain["pl7.app/blockId"] = blockId
+        exportColumns += [col]
     }
 
     outputSpecs := {
@@ -159,21 +114,19 @@ self.body(func(args) {
         { splitDataAndSpec: true, cpu: 1, mem: convMemGiB }
     )
 
-    blockLabel := customBlockLabel || defaultBlockLabel || "Sequence liabilities"
+    blockLabel := customBlockLabel || defaultBlockLabel || "Humanness Score"
 
-    // Trace type matches the antibody pipeline so downstream consumers
-    // (lead-selection's score collection) treat the two modalities uniformly.
     traceSteps := [{
-        type: "milaboratories.sequence-liabilities",
+        type: "milaboratories.humanization-score",
         importance: 30,
         label: blockLabel,
         id: blockId
     }]
-    liabilityTrace := pSpec.makeTrace(datasetSpec, traceSteps...)
+    humannessTrace := pSpec.makeTrace(datasetSpec, traceSteps...)
 
     exportPframe := pframes.pFrameBuilder()
     for k, v in exportOutput {
-        exportPframe.add(k, liabilityTrace.inject(v.spec), v.data)
+        exportPframe.add(k, humannessTrace.inject(v.spec), v.data)
     }
     exportPframe = exportPframe.build()
 

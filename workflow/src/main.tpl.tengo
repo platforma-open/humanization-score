@@ -265,13 +265,9 @@ wf.body(func(args) {
 	})
 
 	liabilitiesResult := liabilitiesResultCalc.output("result", 24 * 60 * 60 * 1000)
-	newMapping := liabilitiesResultCalc.output("newMapping", 24 * 60 * 60 * 1000)
-	regionsFound := liabilitiesResultCalc.output("regionsFound", 24 * 60 * 60 * 1000)
 
 	processResult := render.create(processTpl, {
 		liabilitiesTable: liabilitiesResult,
-		newMapping: newMapping,
-		regionsFound: regionsFound,
 		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
 		defaultBlockLabel: args.defaultBlockLabel,
