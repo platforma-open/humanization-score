@@ -1,0 +1,82 @@
+# @platforma-open/milaboratories.humanization-score.umap
+
+## 1.2.5
+
+### Patch Changes
+
+- c85f63a: SDK update
+
+## 1.2.4
+
+### Patch Changes
+
+- 4855fff: dont show column header linker postfix and update sdk
+
+## 1.2.3
+
+### Patch Changes
+
+- 3e9c9ef: bump sdk for fix table query
+
+## 1.2.2
+
+### Patch Changes
+
+- 199e95d: Updated dependencies
+
+## 1.2.1
+
+### Patch Changes
+
+- b99b7ba: Revert optimization changes
+
+## 1.2.0
+
+### Minor Changes
+
+- 532b9ed: Block performance optimization
+
+## 1.1.4
+
+### Patch Changes
+
+- edbd894: technical release
+- 6dc2d2b: technical release
+- e581493: technical release
+- 1c26f0d: technical release
+
+## 1.1.3
+
+### Patch Changes
+
+- technical release
+
+## 1.1.2
+
+### Patch Changes
+
+- 020a5b4: Update SDK and python
+
+## 1.1.1
+
+### Patch Changes
+
+- 22b01ef: Updated SDK to support polars.
+
+## 1.1.0
+
+### Minor Changes
+
+- c4927c6: Update python package versions
+
+## 1.0.3
+
+### Patch Changes
+
+- b603873: chore: update deps
+
+## 1.0.2
+
+### Patch Changes
+
+- b280c5c: Use embedded kalign

@@ -1,0 +1,704 @@
+# @platforma-open/milaboratories.humanization-score.ui
+
+## 4.1.5
+
+### Patch Changes
+
+- Updated dependencies [73fbf24]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.5
+
+## 4.1.4
+
+### Patch Changes
+
+- f4fb49e: Update SDK
+- Updated dependencies [f4fb49e]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.4
+
+## 4.1.3
+
+### Patch Changes
+
+- c1cdb27: Revert udpate
+- Updated dependencies [c1cdb27]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.3
+
+## 4.1.2
+
+### Patch Changes
+
+- 0b07f15: update dependencies
+- 2eff103: Update dependencies
+- Updated dependencies [0b07f15]
+- Updated dependencies [2eff103]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.2
+
+## 4.1.1
+
+### Patch Changes
+
+- c85f63a: SDK update
+- Updated dependencies [c85f63a]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.1
+
+## 4.1.0
+
+### Minor Changes
+
+- b812c7d: Track which filter step eliminated each clonotype (or marks it as a
+  survivor) and visualize the attrition in a new Selection page. The
+  sample-clonotypes script emits a selectionStage column per clone; the
+  workflow exposes it as selectionStagePf, and the block UI renders it
+  via GraphMaker's selection chart type.
+
+### Patch Changes
+
+- Updated dependencies [b812c7d]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.0
+
+## 4.0.3
+
+### Patch Changes
+
+- 4855fff: dont show column header linker postfix and update sdk
+- Updated dependencies [4855fff]
+  - @platforma-open/milaboratories.humanization-score.model@4.0.3
+
+## 4.0.2
+
+### Patch Changes
+
+- 461999c: Fix minor issues
+- Updated dependencies [2a2533d]
+- Updated dependencies [461999c]
+  - @platforma-open/milaboratories.humanization-score.model@4.0.2
+
+## 4.0.1
+
+### Patch Changes
+
+- Updated dependencies [dd754ae]
+  - @platforma-open/milaboratories.humanization-score.model@4.0.1
+
+## 4.0.0
+
+### Major Changes
+
+- 1c1c7c1: Support peptides
+
+### Patch Changes
+
+- Updated dependencies [1c1c7c1]
+  - @platforma-open/milaboratories.humanization-score.model@4.0.0
+
+## 3.0.7
+
+### Patch Changes
+
+- Updated dependencies [2963224]
+  - @platforma-open/milaboratories.humanization-score.model@3.2.0
+
+## 3.0.6
+
+### Patch Changes
+
+- Updated dependencies [9faee69]
+  - @platforma-open/milaboratories.humanization-score.model@3.1.1
+
+## 3.0.5
+
+### Patch Changes
+
+- Updated dependencies [23ba36d]
+  - @platforma-open/milaboratories.humanization-score.model@3.1.0
+
+## 3.0.4
+
+### Patch Changes
+
+- 3e9c9ef: bump sdk for fix table query
+- Updated dependencies [3e9c9ef]
+  - @platforma-open/milaboratories.humanization-score.model@3.0.3
+
+## 3.0.3
+
+### Patch Changes
+
+- Updated dependencies [8fcb373]
+  - @platforma-open/milaboratories.humanization-score.model@3.0.2
+
+## 3.0.2
+
+### Patch Changes
+
+- d6674b7: Fix MSA sequence selection for single cell data
+
+## 3.0.1
+
+### Patch Changes
+
+- 3229116: SDK update
+- Updated dependencies [3229116]
+  - @platforma-open/milaboratories.humanization-score.model@3.0.1
+
+## 3.0.0
+
+### Major Changes
+
+- c2c2b06: VDJ Integration support, BlockV3 api migration
+
+### Patch Changes
+
+- Updated dependencies [c2c2b06]
+  - @platforma-open/milaboratories.humanization-score.model@3.0.0
+
+## 2.2.1
+
+### Patch Changes
+
+- 199e95d: Updated dependencies
+- Updated dependencies [199e95d]
+  - @platforma-open/milaboratories.humanization-score.model@2.2.1
+
+## 2.2.0
+
+### Minor Changes
+
+- f54202c: Add isNA/isNotNA filter types for lead selection filters
+
+  Columns with discrete allowed values (like Structural Liabilities with None/Low/Medium/High) previously only offered "Is one of" / "Is not one of" filter types, making it impossible to filter by empty/NA values. Now all column types (numeric, string, and discrete) include "Is empty (NA)" and "Is not empty (NA)" filter options.
+
+### Patch Changes
+
+- Updated dependencies [f54202c]
+  - @platforma-open/milaboratories.humanization-score.model@2.2.0
+
+## 2.1.3
+
+### Patch Changes
+
+- 5ba7988: Fix MSA sequence selection
+
+## 2.1.2
+
+### Patch Changes
+
+- fac7dd3: update dependencies
+
+## 2.1.1
+
+### Patch Changes
+
+- d80f198: fix filter options, update dependencies
+- Updated dependencies [d80f198]
+  - @platforma-open/milaboratories.humanization-score.model@2.1.1
+
+## 2.1.0
+
+### Minor Changes
+
+- 84a7fe5: Deal with ANARCI numbering issues
+
+### Patch Changes
+
+- Updated dependencies [84a7fe5]
+  - @platforma-open/milaboratories.humanization-score.model@2.1.0
+
+## 2.0.6
+
+### Patch Changes
+
+- 1e872e3: Allow in filter options multiple choice filters without defaul valuet
+- Updated dependencies [1e872e3]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.4
+
+## 2.0.5
+
+### Patch Changes
+
+- 140ce30: Support custom block label
+
+## 2.0.4
+
+### Patch Changes
+
+- Updated dependencies [f5800e7]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.3
+
+## 2.0.3
+
+### Patch Changes
+
+- 1cca83c: Fix NaN parsing for number filters
+
+## 2.0.2
+
+### Patch Changes
+
+- Updated dependencies [592b8dd]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.2
+
+## 2.0.1
+
+### Patch Changes
+
+- Updated dependencies [60a81eb]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.1
+
+## 2.0.0
+
+### Major Changes
+
+- 590699a: Introduce diverisified ranking, in-vivo score estimation and workflow presets
+
+### Patch Changes
+
+- Updated dependencies [590699a]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.0
+
+## 1.13.15
+
+### Patch Changes
+
+- f1d0c04: Fix of the error with white screen
+
+## 1.13.14
+
+### Patch Changes
+
+- Updated dependencies [c112c60]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.11
+
+## 1.13.13
+
+### Patch Changes
+
+- Updated dependencies [7db9d6c]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.10
+
+## 1.13.12
+
+### Patch Changes
+
+- 65cbdd5: Minor fix to prevent leads spec multiple match
+
+## 1.13.11
+
+### Patch Changes
+
+- ff606b5: Implement multi-selection filters
+- Updated dependencies [ff606b5]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.9
+
+## 1.13.10
+
+### Patch Changes
+
+- Updated dependencies [748d512]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.8
+
+## 1.13.9
+
+### Patch Changes
+
+- a197d00: Update SDK
+- Updated dependencies [a197d00]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.7
+
+## 1.13.8
+
+### Patch Changes
+
+- Updated dependencies [dda8ecc]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.6
+
+## 1.13.7
+
+### Patch Changes
+
+- 9cb3d0b: Update block label
+- Updated dependencies [9cb3d0b]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.5
+
+## 1.13.6
+
+### Patch Changes
+
+- 2812db7: regard 0 az value
+
+## 1.13.5
+
+### Patch Changes
+
+- 6a912d1: Show running state for tables and graphs
+- Updated dependencies [6a912d1]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.4
+
+## 1.13.4
+
+### Patch Changes
+
+- Updated dependencies [accb214]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.3
+
+## 1.13.3
+
+### Patch Changes
+
+- 1ec3ac8: Make KABAT columns visible by default
+- Updated dependencies [1ec3ac8]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.2
+
+## 1.13.2
+
+### Patch Changes
+
+- 5ab7052: Downgrade UI SDK version
+
+## 1.13.1
+
+### Patch Changes
+
+- 0b57c1b: Show only specific columns be default: Clone, Cluster Id, AA sequence and filter/rank columns
+- Updated dependencies [0b57c1b]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.1
+
+## 1.13.0
+
+### Minor Changes
+
+- b201aaf: Improve cluster ranking, improve performance
+
+### Patch Changes
+
+- Updated dependencies [b201aaf]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.0
+
+## 1.12.0
+
+### Minor Changes
+
+- 4ecbe6b: Improve cluster-based ranking
+
+### Patch Changes
+
+- Updated dependencies [4ecbe6b]
+  - @platforma-open/milaboratories.humanization-score.model@1.14.0
+
+## 1.11.0
+
+### Minor Changes
+
+- 00143a9: multiple clustering blocks fix, columns names fix, dependencies updates
+
+### Patch Changes
+
+- Updated dependencies [00143a9]
+  - @platforma-open/milaboratories.humanization-score.model@1.13.0
+
+## 1.10.2
+
+### Patch Changes
+
+- 10883fc: Fix “UpdateSerializer.run error, retrying... Error: An object could not be cloned” when changing filters
+
+## 1.10.1
+
+### Patch Changes
+
+- b99b7ba: Revert optimization changes
+
+## 1.10.0
+
+### Minor Changes
+
+- 532b9ed: Block performance optimization
+
+## 1.9.3
+
+### Patch Changes
+
+- 89154a2: use moved pl-multi-sequence-alignment
+
+## 1.9.2
+
+### Patch Changes
+
+- 9245274: Fix filter issues related to data types
+
+## 1.9.1
+
+### Patch Changes
+
+- Updated dependencies [3825a42]
+  - @platforma-open/milaboratories.humanization-score.model@1.12.0
+
+## 1.9.0
+
+### Minor Changes
+
+- ccc8076: kabat numbering added
+
+### Patch Changes
+
+- Updated dependencies [ccc8076]
+  - @platforma-open/milaboratories.humanization-score.model@1.11.0
+
+## 1.8.11
+
+### Patch Changes
+
+- Updated dependencies [44895be]
+  - @platforma-open/milaboratories.humanization-score.model@1.10.3
+
+## 1.8.10
+
+### Patch Changes
+
+- d8318f4: Recover original filter value after resetting filters
+- 65e8749: Minor bugs correction and SDK update
+- Updated dependencies [65e8749]
+  - @platforma-open/milaboratories.humanization-score.model@1.10.2
+
+## 1.8.9
+
+### Patch Changes
+
+- edbd894: technical release
+- 6dc2d2b: technical release
+- e581493: technical release
+- 1c26f0d: technical release
+- Updated dependencies [edbd894]
+- Updated dependencies [6dc2d2b]
+- Updated dependencies [e581493]
+- Updated dependencies [1c26f0d]
+  - @platforma-open/milaboratories.humanization-score.model@1.10.1
+
+## 1.8.8
+
+### Patch Changes
+
+- Updated dependencies [67443d9]
+  - @platforma-open/milaboratories.humanization-score.model@1.10.0
+
+## 1.8.7
+
+### Patch Changes
+
+- b9198fe: update graph-maker version
+
+## 1.8.6
+
+### Patch Changes
+
+- technical release
+- Updated dependencies
+  - @platforma-open/milaboratories.humanization-score.model@1.9.4
+
+## 1.8.5
+
+### Patch Changes
+
+- Updated dependencies [020a5b4]
+  - @platforma-open/milaboratories.humanization-score.model@1.9.3
+
+## 1.8.4
+
+### Patch Changes
+
+- 2e6e7c9: Label update and minor fix
+
+## 1.8.3
+
+### Patch Changes
+
+- 22b01ef: Updated SDK to support polars.
+- Updated dependencies [22b01ef]
+  - @platforma-open/milaboratories.humanization-score.model@1.9.2
+
+## 1.8.2
+
+### Patch Changes
+
+- 878a86a: Update packages versions
+- Updated dependencies [878a86a]
+  - @platforma-open/milaboratories.humanization-score.model@1.9.1
+
+## 1.8.1
+
+### Patch Changes
+
+- 10e479d: update graph-maker verison
+
+## 1.8.0
+
+### Minor Changes
+
+- c282203: Improved block performance. Fixed increasing ranking order and cluster size ranking
+
+## 1.7.1
+
+### Patch Changes
+
+- Updated dependencies [b499ab2]
+  - @platforma-open/milaboratories.humanization-score.model@1.9.0
+
+## 1.7.0
+
+### Minor Changes
+
+- a435169: Move filters to settings and add prerun
+
+### Patch Changes
+
+- Updated dependencies [a435169]
+  - @platforma-open/milaboratories.humanization-score.model@1.8.0
+
+## 1.6.0
+
+### Minor Changes
+
+- 456ba67: Use ui state for ranking metadata
+
+### Patch Changes
+
+- Updated dependencies [456ba67]
+  - @platforma-open/milaboratories.humanization-score.model@1.7.0
+
+## 1.5.1
+
+### Patch Changes
+
+- 28648b0: MSA updates
+
+## 1.5.0
+
+### Minor Changes
+
+- 792dea6: Migrate to PlElementList
+
+### Patch Changes
+
+- f0a7b9b: Upgrade to use latest PlAgDataTableV2 update
+- Updated dependencies [792dea6]
+- Updated dependencies [f0a7b9b]
+  - @platforma-open/milaboratories.humanization-score.model@1.6.0
+
+## 1.4.3
+
+### Patch Changes
+
+- 3e10e03: update graph-maker version
+
+## 1.4.2
+
+### Patch Changes
+
+- 5877b1b: Update PlAgDataTableV2 usage
+
+## 1.4.1
+
+### Patch Changes
+
+- 44c4b32: PlAgDataTableV2 upgrade
+- Updated dependencies [44c4b32]
+  - @platforma-open/milaboratories.humanization-score.model@1.5.1
+
+## 1.4.0
+
+### Minor Changes
+
+- 4b1a662: Support batch system and small fix
+
+## 1.3.0
+
+### Minor Changes
+
+- bf454d4: Default ranking column in case user does not select one
+- 4990fd8: Fix empty top and ranking cases
+
+### Patch Changes
+
+- Updated dependencies [bf454d4]
+- Updated dependencies [4990fd8]
+  - @platforma-open/milaboratories.humanization-score.model@1.5.0
+
+## 1.2.4
+
+### Patch Changes
+
+- b280c5c: Use embedded kalign
+
+## 1.2.3
+
+### Patch Changes
+
+- 43ca870: Fix umap page
+
+## 1.2.2
+
+### Patch Changes
+
+- b1e9b63: Wrap PlMultiSequenceAlignment in a modal
+
+## 1.2.1
+
+### Patch Changes
+
+- Updated dependencies [2e24f7a]
+  - @platforma-open/milaboratories.humanization-score.model@1.4.0
+
+## 1.2.0
+
+### Minor Changes
+
+- 5ee90ac: Add CDR3 spectratype
+
+### Patch Changes
+
+- Updated dependencies [5ee90ac]
+  - @platforma-open/milaboratories.humanization-score.model@1.3.0
+
+## 1.1.5
+
+### Patch Changes
+
+- a378bfd: Limit the number of rows shown in a multiple alignment component to 1000 (temp fix)
+
+## 1.1.4
+
+### Patch Changes
+
+- 4a3f480: Speed up the highlighting algorithm
+
+## 1.1.3
+
+### Patch Changes
+
+- 4319244: Fix higlighting algorithm and speed up a little
+
+## 1.1.2
+
+### Patch Changes
+
+- 339a780: Main backbone
+- Updated dependencies [339a780]
+  - @platforma-open/milaboratories.humanization-score.model@1.2.1
+
+## 1.1.1
+
+### Patch Changes
+
+- Updated dependencies [1990e84]
+  - @platforma-open/milaboratories.humanization-score.model@1.2.0
+
+## 1.1.0
+
+### Minor Changes
+
+- 208de2a: First version
+
+### Patch Changes
+
+- Updated dependencies [208de2a]
+  - @platforma-open/milaboratories.humanization-score.model@1.1.0

@@ -1,0 +1,23 @@
+{
+  "name": "@platforma-open/milaboratories.humanization-score.workflow",
+  "version": "4.1.2",
+  "type": "module",
+  "description": "Block Workflow",
+  "scripts": {
+    "build": "shx rm -rf dist && pl-tengo check && pl-tengo build",
+    "format": "/usr/bin/env emacs --script ./format.el",
+    "do-pack": "shx rm -f *.tgz && pnpm pack && shx mv *.tgz package.tgz"
+  },
+  "dependencies": {
+    "@platforma-open/milaboratories.humanization-score.sample-clonotypes": "workspace:*",
+    "@platforma-open/milaboratories.humanization-score.spectratype": "workspace:*",
+    "@platforma-open/milaboratories.humanization-score.umap": "workspace:*",
+    "@platforma-open/milaboratories.humanization-score.assembling-fasta": "workspace:*",
+    "@platforma-open/milaboratories.humanization-score.anarci-kabat": "workspace:*",
+    "@platforma-sdk/workflow-tengo": "catalog:",
+    "@platforma-open/milaboratories.software-anarci": "catalog:"
+  },
+  "devDependencies": {
+    "@platforma-sdk/tengo-builder": "catalog:"
+  }
+}

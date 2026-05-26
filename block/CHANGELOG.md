@@ -1,0 +1,949 @@
+# @platforma-open/milaboratories.humanization-score
+
+## 3.0.10
+
+### Patch Changes
+
+- 73fbf24: Recognize 3d-structure-clustering linkers when populating the cluster-column dropdown. The label is now extracted from the producer block's clustering trace element for both clonotype-clustering and 3d-structure-clustering sources.
+
+  Show the "Clone Id" axis-label column by default in the main lead-selection table (previously it was orderable but only visible from the optional-columns picker).
+
+- Updated dependencies [73fbf24]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.5
+  - @platforma-open/milaboratories.humanization-score.ui@4.1.5
+
+## 3.0.9
+
+### Patch Changes
+
+- f4fb49e: Update SDK
+- Updated dependencies [f4fb49e]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.4
+  - @platforma-open/milaboratories.humanization-score.ui@4.1.4
+
+## 3.0.8
+
+### Patch Changes
+
+- c1cdb27: Revert udpate
+- Updated dependencies [c1cdb27]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.3
+  - @platforma-open/milaboratories.humanization-score.ui@4.1.3
+
+## 3.0.7
+
+### Patch Changes
+
+- 2eff103: Update dependencies
+- Updated dependencies [0b07f15]
+- Updated dependencies [2eff103]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.2
+  - @platforma-open/milaboratories.humanization-score.ui@4.1.2
+
+## 3.0.6
+
+### Patch Changes
+
+- Updated dependencies [6920645]
+  - @platforma-open/milaboratories.humanization-score.workflow@4.1.2
+
+## 3.0.5
+
+### Patch Changes
+
+- c85f63a: SDK update
+- Updated dependencies [c85f63a]
+  - @platforma-open/milaboratories.humanization-score.model@4.1.1
+  - @platforma-open/milaboratories.humanization-score.ui@4.1.1
+  - @platforma-open/milaboratories.humanization-score.workflow@4.1.1
+
+## 3.0.4
+
+### Patch Changes
+
+- Updated dependencies [b812c7d]
+  - @platforma-open/milaboratories.humanization-score.workflow@4.1.0
+  - @platforma-open/milaboratories.humanization-score.model@4.1.0
+  - @platforma-open/milaboratories.humanization-score.ui@4.1.0
+
+## 3.0.3
+
+### Patch Changes
+
+- 4855fff: dont show column header linker postfix and update sdk
+- Updated dependencies [4855fff]
+  - @platforma-open/milaboratories.humanization-score.model@4.0.3
+  - @platforma-open/milaboratories.humanization-score.ui@4.0.3
+  - @platforma-open/milaboratories.humanization-score.workflow@4.0.3
+
+## 3.0.2
+
+### Patch Changes
+
+- Updated dependencies [2a2533d]
+- Updated dependencies [6042e4a]
+- Updated dependencies [461999c]
+  - @platforma-open/milaboratories.humanization-score.workflow@4.0.2
+  - @platforma-open/milaboratories.humanization-score.model@4.0.2
+  - @platforma-open/milaboratories.humanization-score.ui@4.0.2
+
+## 3.0.1
+
+### Patch Changes
+
+- dd754ae: Accept both pre- and post-peptide-adaptation spec names from upstream blocks so projects using either version remain functional:
+
+  - Preset filter/ranking allowlists now include `pl7.app/enrichment*` (clonotype-enrichment) and `pl7.app/developability*` (antibody-sequence-liabilities) alongside the legacy `pl7.app/vdj/`-prefixed names.
+  - Diversification dropdown, cluster-axis matching, hidden cluster-mapping column, and workflow-side linker matching now recognize both `pl7.app/clusterId` and `pl7.app/vdj/clusterId` axis names (clonotype-clustering rename).
+  - Cluster-size query uses a namePattern matching both `pl7.app/clustering/clusterSize` and `pl7.app/vdj/clustering/clusterSize`.
+
+- Updated dependencies [dd754ae]
+  - @platforma-open/milaboratories.humanization-score.model@4.0.1
+  - @platforma-open/milaboratories.humanization-score.workflow@4.0.1
+  - @platforma-open/milaboratories.humanization-score.ui@4.0.1
+
+## 3.0.0
+
+### Major Changes
+
+- 1c1c7c1: Support peptides
+
+### Patch Changes
+
+- Updated dependencies [1c1c7c1]
+  - @platforma-open/milaboratories.humanization-score.workflow@4.0.0
+  - @platforma-open/milaboratories.humanization-score.model@4.0.0
+  - @platforma-open/milaboratories.humanization-score.ui@4.0.0
+
+## 2.2.0
+
+### Minor Changes
+
+- 2963224: Show table with partial data
+
+### Patch Changes
+
+- Updated dependencies [2963224]
+  - @platforma-open/milaboratories.humanization-score.model@3.2.0
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.7
+
+## 2.1.10
+
+### Patch Changes
+
+- Updated dependencies [9faee69]
+  - @platforma-open/milaboratories.humanization-score.model@3.1.1
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.6
+
+## 2.1.9
+
+### Patch Changes
+
+- Updated dependencies [23ba36d]
+  - @platforma-open/milaboratories.humanization-score.model@3.1.0
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.5
+
+## 2.1.8
+
+### Patch Changes
+
+- 3e9c9ef: bump sdk for fix table query
+- Updated dependencies [3e9c9ef]
+  - @platforma-open/milaboratories.humanization-score.model@3.0.3
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.4
+  - @platforma-open/milaboratories.humanization-score.workflow@3.0.1
+
+## 2.1.7
+
+### Patch Changes
+
+- Updated dependencies [8fcb373]
+  - @platforma-open/milaboratories.humanization-score.model@3.0.2
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.3
+
+## 2.1.6
+
+### Patch Changes
+
+- Updated dependencies [d6674b7]
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.2
+
+## 2.1.5
+
+### Patch Changes
+
+- Updated dependencies [3229116]
+  - @platforma-open/milaboratories.humanization-score.model@3.0.1
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.1
+
+## 2.1.4
+
+### Patch Changes
+
+- Updated dependencies [c2c2b06]
+  - @platforma-open/milaboratories.humanization-score.workflow@3.0.0
+  - @platforma-open/milaboratories.humanization-score.model@3.0.0
+  - @platforma-open/milaboratories.humanization-score.ui@3.0.0
+
+## 2.1.3
+
+### Patch Changes
+
+- 199e95d: Updated dependencies
+- Updated dependencies [199e95d]
+  - @platforma-open/milaboratories.humanization-score.model@2.2.1
+  - @platforma-open/milaboratories.humanization-score.ui@2.2.1
+  - @platforma-open/milaboratories.humanization-score.workflow@2.2.2
+
+## 2.1.2
+
+### Patch Changes
+
+- @platforma-open/milaboratories.humanization-score.workflow@2.2.1
+
+## 2.1.1
+
+### Patch Changes
+
+- 29bb936: Remove console.error calls from model code (console unavailable in model sandbox)
+
+## 2.1.0
+
+### Minor Changes
+
+- f54202c: Add isNA/isNotNA filter types for lead selection filters
+
+  Columns with discrete allowed values (like Structural Liabilities with None/Low/Medium/High) previously only offered "Is one of" / "Is not one of" filter types, making it impossible to filter by empty/NA values. Now all column types (numeric, string, and discrete) include "Is empty (NA)" and "Is not empty (NA)" filter options.
+
+### Patch Changes
+
+- Updated dependencies [f54202c]
+  - @platforma-open/milaboratories.humanization-score.model@2.2.0
+  - @platforma-open/milaboratories.humanization-score.ui@2.2.0
+  - @platforma-open/milaboratories.humanization-score.workflow@2.2.0
+
+## 2.0.10
+
+### Patch Changes
+
+- Updated dependencies [5ba7988]
+  - @platforma-open/milaboratories.humanization-score.ui@2.1.3
+
+## 2.0.9
+
+### Patch Changes
+
+- Updated dependencies [fac7dd3]
+  - @platforma-open/milaboratories.humanization-score.ui@2.1.2
+
+## 2.0.8
+
+### Patch Changes
+
+- Updated dependencies [d80f198]
+  - @platforma-open/milaboratories.humanization-score.model@2.1.1
+  - @platforma-open/milaboratories.humanization-score.ui@2.1.1
+
+## 2.0.7
+
+### Patch Changes
+
+- Updated dependencies [84a7fe5]
+  - @platforma-open/milaboratories.humanization-score.workflow@2.1.0
+  - @platforma-open/milaboratories.humanization-score.model@2.1.0
+  - @platforma-open/milaboratories.humanization-score.ui@2.1.0
+
+## 2.0.6
+
+### Patch Changes
+
+- Updated dependencies [1e872e3]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.4
+  - @platforma-open/milaboratories.humanization-score.ui@2.0.6
+
+## 2.0.5
+
+### Patch Changes
+
+- Updated dependencies [140ce30]
+  - @platforma-open/milaboratories.humanization-score.workflow@2.0.1
+  - @platforma-open/milaboratories.humanization-score.ui@2.0.5
+
+## 2.0.4
+
+### Patch Changes
+
+- Updated dependencies [f5800e7]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.3
+  - @platforma-open/milaboratories.humanization-score.ui@2.0.4
+
+## 2.0.3
+
+### Patch Changes
+
+- Updated dependencies [1cca83c]
+  - @platforma-open/milaboratories.humanization-score.ui@2.0.3
+
+## 2.0.2
+
+### Patch Changes
+
+- Updated dependencies [592b8dd]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.2
+  - @platforma-open/milaboratories.humanization-score.ui@2.0.2
+
+## 2.0.1
+
+### Patch Changes
+
+- Updated dependencies [60a81eb]
+  - @platforma-open/milaboratories.humanization-score.model@2.0.1
+  - @platforma-open/milaboratories.humanization-score.ui@2.0.1
+
+## 2.0.0
+
+### Major Changes
+
+- 590699a: Introduce diverisified ranking, in-vivo score estimation and workflow presets
+
+### Patch Changes
+
+- Updated dependencies [590699a]
+  - @platforma-open/milaboratories.humanization-score.workflow@2.0.0
+  - @platforma-open/milaboratories.humanization-score.model@2.0.0
+  - @platforma-open/milaboratories.humanization-score.ui@2.0.0
+
+## 1.4.21
+
+### Patch Changes
+
+- Updated dependencies [f1d0c04]
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.15
+
+## 1.4.20
+
+### Patch Changes
+
+- Updated dependencies [c112c60]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.11
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.14
+
+## 1.4.19
+
+### Patch Changes
+
+- Updated dependencies [7db9d6c]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.10
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.13
+
+## 1.4.18
+
+### Patch Changes
+
+- Updated dependencies [65cbdd5]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.17.6
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.12
+
+## 1.4.17
+
+### Patch Changes
+
+- Updated dependencies [ff606b5]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.17.5
+  - @platforma-open/milaboratories.humanization-score.model@1.15.9
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.11
+
+## 1.4.16
+
+### Patch Changes
+
+- Updated dependencies [748d512]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.8
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.10
+
+## 1.4.15
+
+### Patch Changes
+
+- Updated dependencies [a197d00]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.7
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.9
+
+## 1.4.14
+
+### Patch Changes
+
+- 821ebc8: SDK Update
+
+## 1.4.13
+
+### Patch Changes
+
+- Updated dependencies [605fdf0]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.17.4
+
+## 1.4.12
+
+### Patch Changes
+
+- Updated dependencies [535be8f]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.17.3
+
+## 1.4.11
+
+### Patch Changes
+
+- 9acdab2: Update sdk
+
+## 1.4.10
+
+### Patch Changes
+
+- Updated dependencies [dda8ecc]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.6
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.8
+
+## 1.4.9
+
+### Patch Changes
+
+- 1de2f1b: Update SDK
+
+## 1.4.8
+
+### Patch Changes
+
+- Updated dependencies [9cb3d0b]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.5
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.7
+
+## 1.4.7
+
+### Patch Changes
+
+- Updated dependencies [2812db7]
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.6
+
+## 1.4.6
+
+### Patch Changes
+
+- Updated dependencies [6a912d1]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.4
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.5
+
+## 1.4.5
+
+### Patch Changes
+
+- accb214: correct table headers
+- Updated dependencies [accb214]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.3
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.4
+
+## 1.4.4
+
+### Patch Changes
+
+- @platforma-open/milaboratories.humanization-score.workflow@1.17.2
+
+## 1.4.3
+
+### Patch Changes
+
+- Updated dependencies [1ec3ac8]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.2
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.3
+
+## 1.4.2
+
+### Patch Changes
+
+- Updated dependencies [5ab7052]
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.2
+
+## 1.4.1
+
+### Patch Changes
+
+- 0b57c1b: Show only specific columns be default: Clone, Cluster Id, AA sequence and filter/rank columns
+- Updated dependencies [0b57c1b]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.17.1
+  - @platforma-open/milaboratories.humanization-score.model@1.15.1
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.1
+
+## 1.4.0
+
+### Minor Changes
+
+- b201aaf: Improve cluster ranking, improve performance
+
+### Patch Changes
+
+- Updated dependencies [b201aaf]
+  - @platforma-open/milaboratories.humanization-score.model@1.15.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.13.0
+  - @platforma-open/milaboratories.humanization-score.workflow@1.17.0
+
+## 1.3.2
+
+### Patch Changes
+
+- Updated dependencies [4ecbe6b]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.16.0
+  - @platforma-open/milaboratories.humanization-score.model@1.14.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.12.0
+
+## 1.3.1
+
+### Patch Changes
+
+- Updated dependencies [5619236]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.15.1
+
+## 1.3.0
+
+### Minor Changes
+
+- 00143a9: multiple clustering blocks fix, columns names fix, dependencies updates
+
+### Patch Changes
+
+- Updated dependencies [00143a9]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.15.0
+  - @platforma-open/milaboratories.humanization-score.model@1.13.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.11.0
+
+## 1.2.2
+
+### Patch Changes
+
+- Updated dependencies [10883fc]
+  - @platforma-open/milaboratories.humanization-score.ui@1.10.2
+
+## 1.2.1
+
+### Patch Changes
+
+- Updated dependencies [b99b7ba]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.14.1
+  - @platforma-open/milaboratories.humanization-score.ui@1.10.1
+
+## 1.2.0
+
+### Minor Changes
+
+- 532b9ed: Block performance optimization
+
+### Patch Changes
+
+- Updated dependencies [532b9ed]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.14.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.10.0
+
+## 1.1.50
+
+### Patch Changes
+
+- Updated dependencies [e17b19a]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.13.2
+
+## 1.1.49
+
+### Patch Changes
+
+- 736ecfe: Block metadata updated
+
+## 1.1.48
+
+### Patch Changes
+
+- Updated dependencies [89154a2]
+  - @platforma-open/milaboratories.humanization-score.ui@1.9.3
+
+## 1.1.47
+
+### Patch Changes
+
+- Updated dependencies [9245274]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.13.1
+  - @platforma-open/milaboratories.humanization-score.ui@1.9.2
+
+## 1.1.46
+
+### Patch Changes
+
+- efc3524: Update SDK
+
+## 1.1.45
+
+### Patch Changes
+
+- 5d368f6: Update SDK
+
+## 1.1.44
+
+### Patch Changes
+
+- Updated dependencies [3825a42]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.13.0
+  - @platforma-open/milaboratories.humanization-score.model@1.12.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.9.1
+
+## 1.1.43
+
+### Patch Changes
+
+- Updated dependencies [ccc8076]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.12.0
+  - @platforma-open/milaboratories.humanization-score.model@1.11.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.9.0
+
+## 1.1.42
+
+### Patch Changes
+
+- Updated dependencies [44895be]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.11.3
+  - @platforma-open/milaboratories.humanization-score.model@1.10.3
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.11
+
+## 1.1.41
+
+### Patch Changes
+
+- Updated dependencies [d8318f4]
+- Updated dependencies [65e8749]
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.10
+  - @platforma-open/milaboratories.humanization-score.workflow@1.11.2
+  - @platforma-open/milaboratories.humanization-score.model@1.10.2
+
+## 1.1.40
+
+### Patch Changes
+
+- edbd894: technical release
+- 6dc2d2b: technical release
+- e581493: technical release
+- 1c26f0d: technical release
+- Updated dependencies [edbd894]
+- Updated dependencies [6dc2d2b]
+- Updated dependencies [e581493]
+- Updated dependencies [1c26f0d]
+  - @platforma-open/milaboratories.humanization-score.model@1.10.1
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.9
+  - @platforma-open/milaboratories.humanization-score.workflow@1.11.1
+
+## 1.1.39
+
+### Patch Changes
+
+- Updated dependencies [67443d9]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.11.0
+  - @platforma-open/milaboratories.humanization-score.model@1.10.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.8
+
+## 1.1.38
+
+### Patch Changes
+
+- Updated dependencies [b9198fe]
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.7
+
+## 1.1.37
+
+### Patch Changes
+
+- technical release
+- Updated dependencies
+  - @platforma-open/milaboratories.humanization-score.model@1.9.4
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.6
+  - @platforma-open/milaboratories.humanization-score.workflow@1.10.5
+
+## 1.1.36
+
+### Patch Changes
+
+- aba57f2: update dependencies
+- Updated dependencies [020a5b4]
+  - @platforma-open/milaboratories.humanization-score.model@1.9.3
+  - @platforma-open/milaboratories.humanization-score.workflow@1.10.4
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.5
+
+## 1.1.35
+
+### Patch Changes
+
+- Updated dependencies [2e6e7c9]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.10.3
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.4
+
+## 1.1.34
+
+### Patch Changes
+
+- 22b01ef: Updated SDK to support polars.
+- Updated dependencies [22b01ef]
+  - @platforma-open/milaboratories.humanization-score.model@1.9.2
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.3
+  - @platforma-open/milaboratories.humanization-score.workflow@1.10.2
+
+## 1.1.33
+
+### Patch Changes
+
+- Updated dependencies [878a86a]
+  - @platforma-open/milaboratories.humanization-score.model@1.9.1
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.2
+
+## 1.1.32
+
+### Patch Changes
+
+- @platforma-open/milaboratories.humanization-score.workflow@1.10.1
+
+## 1.1.31
+
+### Patch Changes
+
+- Updated dependencies [10e479d]
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.1
+
+## 1.1.30
+
+### Patch Changes
+
+- Updated dependencies [c282203]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.10.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.8.0
+
+## 1.1.29
+
+### Patch Changes
+
+- Updated dependencies [b499ab2]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.9.0
+  - @platforma-open/milaboratories.humanization-score.model@1.9.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.7.1
+
+## 1.1.28
+
+### Patch Changes
+
+- Updated dependencies [f25cad6]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.8.2
+
+## 1.1.27
+
+### Patch Changes
+
+- Updated dependencies [7397001]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.8.1
+
+## 1.1.26
+
+### Patch Changes
+
+- Updated dependencies [a435169]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.8.0
+  - @platforma-open/milaboratories.humanization-score.model@1.8.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.7.0
+
+## 1.1.25
+
+### Patch Changes
+
+- Updated dependencies [456ba67]
+  - @platforma-open/milaboratories.humanization-score.model@1.7.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.6.0
+
+## 1.1.24
+
+### Patch Changes
+
+- Updated dependencies [28648b0]
+  - @platforma-open/milaboratories.humanization-score.ui@1.5.1
+
+## 1.1.23
+
+### Patch Changes
+
+- Updated dependencies [792dea6]
+- Updated dependencies [f0a7b9b]
+  - @platforma-open/milaboratories.humanization-score.model@1.6.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.5.0
+
+## 1.1.22
+
+### Patch Changes
+
+- b55ada4: SDK version bump
+
+## 1.1.21
+
+### Patch Changes
+
+- Updated dependencies [3e10e03]
+  - @platforma-open/milaboratories.humanization-score.ui@1.4.3
+
+## 1.1.20
+
+### Patch Changes
+
+- Updated dependencies [5877b1b]
+  - @platforma-open/milaboratories.humanization-score.ui@1.4.2
+
+## 1.1.19
+
+### Patch Changes
+
+- Updated dependencies [44c4b32]
+  - @platforma-open/milaboratories.humanization-score.model@1.5.1
+  - @platforma-open/milaboratories.humanization-score.ui@1.4.1
+
+## 1.1.18
+
+### Patch Changes
+
+- Updated dependencies [4b1a662]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.7.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.4.0
+
+## 1.1.17
+
+### Patch Changes
+
+- Updated dependencies [d32234f]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.6.0
+
+## 1.1.16
+
+### Patch Changes
+
+- 65deb90: chore: fix version
+
+## 1.1.15
+
+### Patch Changes
+
+- bdff062: chore: revert for MSA
+
+## 1.1.14
+
+### Patch Changes
+
+- Updated dependencies [bf454d4]
+- Updated dependencies [4990fd8]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.5.0
+  - @platforma-open/milaboratories.humanization-score.model@1.5.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.3.0
+
+## 1.1.13
+
+### Patch Changes
+
+- Updated dependencies [b603873]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.4.0
+
+## 1.1.12
+
+### Patch Changes
+
+- de50580: Update SDK
+
+## 1.1.11
+
+### Patch Changes
+
+- Updated dependencies [b280c5c]
+  - @platforma-open/milaboratories.humanization-score.ui@1.2.4
+  - @platforma-open/milaboratories.humanization-score.workflow@1.3.1
+
+## 1.1.10
+
+### Patch Changes
+
+- Updated dependencies [43ca870]
+  - @platforma-open/milaboratories.humanization-score.ui@1.2.3
+
+## 1.1.9
+
+### Patch Changes
+
+- Updated dependencies [b1e9b63]
+  - @platforma-open/milaboratories.humanization-score.ui@1.2.2
+
+## 1.1.8
+
+### Patch Changes
+
+- Updated dependencies [2e24f7a]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.3.0
+  - @platforma-open/milaboratories.humanization-score.model@1.4.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.2.1
+
+## 1.1.7
+
+### Patch Changes
+
+- @platforma-open/milaboratories.humanization-score.workflow@1.2.1
+
+## 1.1.6
+
+### Patch Changes
+
+- Updated dependencies [5ee90ac]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.2.0
+  - @platforma-open/milaboratories.humanization-score.model@1.3.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.2.0
+
+## 1.1.5
+
+### Patch Changes
+
+- Updated dependencies [a378bfd]
+  - @platforma-open/milaboratories.humanization-score.ui@1.1.5
+
+## 1.1.4
+
+### Patch Changes
+
+- Updated dependencies [4a3f480]
+  - @platforma-open/milaboratories.humanization-score.ui@1.1.4
+
+## 1.1.3
+
+### Patch Changes
+
+- Updated dependencies [4319244]
+  - @platforma-open/milaboratories.humanization-score.ui@1.1.3
+
+## 1.1.2
+
+### Patch Changes
+
+- Updated dependencies [339a780]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.1.1
+  - @platforma-open/milaboratories.humanization-score.model@1.2.1
+  - @platforma-open/milaboratories.humanization-score.ui@1.1.2
+
+## 1.1.1
+
+### Patch Changes
+
+- Updated dependencies [1990e84]
+  - @platforma-open/milaboratories.humanization-score.model@1.2.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.1.1
+
+## 1.1.0
+
+### Minor Changes
+
+- 208de2a: First version
+
+### Patch Changes
+
+- Updated dependencies [208de2a]
+  - @platforma-open/milaboratories.humanization-score.workflow@1.1.0
+  - @platforma-open/milaboratories.humanization-score.model@1.1.0
+  - @platforma-open/milaboratories.humanization-score.ui@1.1.0

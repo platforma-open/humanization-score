@@ -1,0 +1,46 @@
+ll := import("@platforma-sdk/workflow-tengo:ll")
+json := import("json")
+
+getColumns := func(datasetSpec, filterMap, rankingMap, diversificationColumn, topClonotypes) {
+
+  // Define domain
+  domain := {
+    "pl7.app/vdj/filter-map": string(json.encode(filterMap)),
+    "pl7.app/vdj/ranking-map": string(json.encode(rankingMap)),
+    "pl7.app/vdj/top-clonotypes": string(topClonotypes)
+  }
+  if diversificationColumn != undefined && diversificationColumn != "" {
+    domain["pl7.app/vdj/diversity-column"] = string(json.encode(diversificationColumn))
+  }
+
+  columns := [{
+        column: "top",
+        id: "link",
+        allowNA: false,
+        spec: {
+          name: "pl7.app/lead-selection",
+          valueType: "Int",
+          domain: domain,
+          annotations: {
+            "pl7.app/label": "Selected Leads",
+            "pl7.app/table/visibility": "hidden",
+            "pl7.app/isSubset": "true"
+          }
+        }
+      }]
+
+  return {
+    axes: [
+      {
+        column: "clonotypeKey",
+        spec: datasetSpec.axesSpec[1]
+      }],
+    columns: columns,
+    storageFormat: "Parquet",
+    partitionKeyLength: 0
+  }
+}
+
+export ll.toStrict({
+	getColumns: getColumns
+})

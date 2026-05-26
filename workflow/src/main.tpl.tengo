@@ -1,0 +1,296 @@
+// Main template for clonotype filtering
+wf := import("@platforma-sdk/workflow-tengo:workflow")
+exec := import("@platforma-sdk/workflow-tengo:exec")
+assets := import("@platforma-sdk/workflow-tengo:assets")
+xsv := import("@platforma-sdk/workflow-tengo:pframes.xsv")
+pframes := import("@platforma-sdk/workflow-tengo:pframes")
+slices := import("@platforma-sdk/workflow-tengo:slices")
+render := import("@platforma-sdk/workflow-tengo:render")
+pSpec := import("@platforma-sdk/workflow-tengo:pframes.spec")
+ll := import("@platforma-sdk/workflow-tengo:ll")
+kabatConv := import(":pf-kabat-conv")
+
+spectratypeConv := import(":pf-spectratype-conv")
+vjUsageConv := import(":pf-vj-usage-conv")
+utils := import(":utils")
+
+filterAndSampleTpl := assets.importTemplate(":filter-and-sample")
+
+wf.prepare(func(args){
+	if is_undefined(args.inputAnchor) {
+        return {
+            columns: wf.createPBundleBuilder().build()
+        }
+    }
+	// We need a table with cluster ID (optional) | clonotype id | selected ranking columns
+    bundleBuilder := wf.createPBundleBuilder()
+    bundleBuilder.ignoreMissingDomains() // to make query work for both bulk and single cell data
+    bundleBuilder.addAnchor("main", args.inputAnchor) 
+    
+    validRanks := false
+    if len(args.rankingOrder) > 0 {
+        for col in args.rankingOrder {
+            // For cases where the user is selecting the table to filter
+            if col.value != undefined {
+                // In Vivo Score is computed from source columns, not a real PColumn
+                if col.value.column == "pl7.app/vdj/inVivoScore" {
+                    // Primary abundance is the input anchor itself — already added above.
+                    // Fetch the remaining source columns by name.
+                    for key, name in utils.inVivoScoreSourceColumns {
+                        bundleBuilder.addMulti({
+                            axes: [{ anchor: "main", idx: 1 }],
+                            name: name
+                        }, "inVivo_" + key)
+                    }
+                    validRanks = true
+                    continue
+                }
+                bundleBuilder.addSingle(col.value.column)
+                validRanks = true
+            }
+        }
+    }
+
+    // Load filter columns
+    if len(args.filters) > 0 {
+        for filter in args.filters {
+            if filter.value != undefined {
+                bundleBuilder.addSingle(filter.value.column)
+            }
+        }
+    }
+    
+
+    // Add linker columns — always fetch them for metadata,
+    // but initializeCloneTable only adds linkers to the join when needed
+    // by filter/ranking columns or diversification.
+    bundleBuilder.addMulti({
+        axes: [{ anchor: "main", idx: 1 }], // this will do partial axes match (unlike in the model)
+        annotations: { "pl7.app/isLinkerColumn": "true" },
+        partialAxesMatch: true
+    }, "linkers")
+    
+    // Add diversificationColumn as a named anchor for matching in body phase
+    if !is_undefined(args.diversificationColumn) {
+        bundleBuilder.addAnchor("selectedCluster", args.diversificationColumn)
+    }
+
+    // Add cluster size columns from clustering blocks. The namePattern matches
+    // both the post-peptide-adaptation name and the pre-peptide `pl7.app/vdj/`
+    // variant so older clonotype-clustering instances remain usable.
+    bundleBuilder.addMulti({
+        namePattern: "^pl7\\.app/(vdj/)?clustering/clusterSize$",
+        partialAxesMatch: true
+    }, "clusterSizes")
+
+    // Add CDR3 sequences
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }], // Clonotype axis
+		name: "pl7.app/vdj/sequence",
+		domain: {
+			"pl7.app/alphabet": "aminoacid",
+			"pl7.app/vdj/feature": "CDR3"    // Specify CDR3 feature
+		}
+	}, "cdr3Sequences") // New collection name for CDR3 sequences
+
+	// Add V gene
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }], // Clonotype axis
+		name: "pl7.app/vdj/geneHit",
+		domain: {
+			"pl7.app/vdj/reference": "VGene"
+		}
+	}, "VGenes")
+
+	// Add J gene
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }], // Clonotype axis
+		name: "pl7.app/vdj/geneHit",
+		domain: {
+			"pl7.app/vdj/reference": "JGene"
+		}
+	}, "JGenes")
+
+	// Add assembling feature aminoacid sequences (bulk, sc).
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }], // Clonotype axis
+		name: "pl7.app/vdj/sequence",
+		annotations: { "pl7.app/vdj/isAssemblingFeature": "true" },
+		domain: { "pl7.app/alphabet": "aminoacid" }
+	}, "assemblingAaSeqs")
+
+	// Detect scFv mode by presence of the combined construct column.
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }],
+		name: "pl7.app/vdj/scFv-sequence"
+	}, "scFvDetect")
+
+	// Per-chain VDJRegion AA sequences for ANARCI/Kabat in scFv mode.
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }],
+		name: "pl7.app/vdj/sequence",
+		domain: { "pl7.app/alphabet": "aminoacid" }
+	}, "scFvPerChainSeqs")
+
+	// Peptide main sequence — single-axis column on variantKey, used as
+	// modality-aware fallback when no filter/ranking columns load.
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }],
+		annotations: {
+			"pl7.app/isAssemblingFeature": "true",
+			"pl7.app/isMainSequence": "true"
+		},
+		domain: { "pl7.app/alphabet": "aminoacid" }
+	}, "peptideMainSeqs")
+    
+    return {
+        columns: bundleBuilder.build()
+    }
+})
+
+wf.body(func(args) {
+	// output containers 
+	outputs := {}
+    exports := {}
+
+    if !is_undefined(args.inputAnchor) {
+        // Input arguments
+        columns := args.columns
+        datasetSpec := columns.getSpec(args.inputAnchor)
+        topClonotypes := args.topClonotypes
+
+        // Needed conditional variable
+	    isSingleCell := datasetSpec.axesSpec[1].name == "pl7.app/vdj/scClonotypeKey"
+	    isPeptide := datasetSpec.axesSpec[1].name == "pl7.app/variantKey"
+    
+        ////////// Clonotype Filtering //////////
+        // Initialize and build clone table with all columns
+        tableInit := utils.initializeCloneTable(pframes, columns, args, datasetSpec)
+        cloneTable := tableInit.cloneTable
+        filterMap := tableInit.filterMap
+        rankingMap := tableInit.rankingMap
+        sortedLinkers := tableInit.sortedLinkers
+        clusterColumnHeader := tableInit.clusterColumnHeader
+        addedCols := tableInit.addedCols
+
+        // Continue only if we have at least a column
+        // This condition prevents temporal intermittent error while filters are
+        // being processed and possibly in other situations too
+        if addedCols {
+
+            // Build trace label from filter descriptions
+            filterTraceLabel := utils.buildFilterTraceLabel(args.filters, columns)
+            // Build per-filter stage names for Selection Plot
+            filterStageNames := utils.buildFilterStageNames(args.filters, columns)
+
+            // Use ender.create to call the filter-clonotypes template
+            filterSampleResult := render.create(filterAndSampleTpl, {
+                inputAnchor: args.inputAnchor,
+                cloneTable: cloneTable,
+                rankingOrder: args.rankingOrder,
+                filters: args.filters,
+                filterMap: filterMap,
+                rankingMap: rankingMap,
+                datasetSpec: datasetSpec,
+                topClonotypes: args.topClonotypes,
+                diversificationColumn: clusterColumnHeader,
+                filterTraceLabel: filterTraceLabel,
+                filterStageNames: filterStageNames,
+                customBlockLabel: args.customBlockLabel
+            })
+
+            // Get the filtered clonotypes from the template result
+            outputs["sampledRows"] = filterSampleResult.output("sampledRows", 24 * 60 * 60 * 1000)
+
+            // Get the filtered and sampled clonotypes P-frame from the template result
+            finalClonotypes := filterSampleResult.output("finalClonotypes", 24 * 60 * 60 * 1000)
+
+            // Export only the sampling column for downstream (built inside sub-template to avoid hang)
+            exports["sampledColumnsPf"] = filterSampleResult.output("sampledColumnsExport", 24 * 60 * 60 * 1000)
+
+            // Selection stage pframe for the Selection Plot page's pre-bound input
+            outputs["selectionStagePf"] = filterSampleResult.output("selectionStagePf", 24 * 60 * 60 * 1000)
+
+            // CDR3 spectratype, V/J gene usage, and Kabat numbering are VDJ-only — skip for peptide inputs.
+            if !isPeptide {
+                ////////// CDR3 Length Calculation //////////
+                // Initialize and build CDR3 sequence table
+                cdr3SeqTableBuilt := utils.initializeCdr3SeqTable(pframes, columns, datasetSpec, isSingleCell)
+
+                cdr3VspectratypeCmd := exec.builder().
+                    software(assets.importSoftware("@platforma-open/milaboratories.humanization-score.spectratype:main")).
+                    mem("16GiB").
+                    cpu(1).
+                    addFile("cdr3_sequences_input.parquet", cdr3SeqTableBuilt).
+                    arg("--input_parquet").arg("cdr3_sequences_input.parquet").
+                    arg("--spectratype_tsv").arg("spectratype.tsv").
+                    arg("--vj_usage_tsv").arg("vj_usage.tsv") // no dot here
+
+                // Add top clonotypes argument and file to the builder if provided
+                if finalClonotypes != undefined {
+                    cdr3VspectratypeCmd = cdr3VspectratypeCmd.
+                        arg("--final-clonotypes").arg("finalClonotypes.parquet").
+                        addFile("finalClonotypes.parquet", finalClonotypes)
+                }
+
+                cdr3VspectratypeCmd = cdr3VspectratypeCmd. // continue building the command
+                    saveFile("spectratype.tsv").
+                    saveFile("vj_usage.tsv").
+                    printErrStreamToStdout().
+                    cache(24 * 60 * 60 * 1000).
+                    run()
+
+
+                // Spectratype PFrame structure is [chain][cdr3Length][vGene] -> count
+
+                cdr3VspectratypePf := xsv.importFile(cdr3VspectratypeCmd.getFile("spectratype.tsv"),
+                                                    "tsv", spectratypeConv.getColumns(),
+                                                    {cpu: 1, mem: "16GiB"})
+                outputs["cdr3VspectratypePf"] = pframes.exportFrame(cdr3VspectratypePf)
+
+                // For vjUsage structure is [chain][vGene][jGene] -> count
+                vjUsagePf := xsv.importFile(cdr3VspectratypeCmd.getFile("vj_usage.tsv"),
+                                            "tsv", vjUsageConv.getColumns(),
+                                            {cpu: 1, mem: "16GiB"})
+                outputs["vjUsagePf"] = pframes.exportFrame(vjUsagePf)
+
+                if args.kabatNumbering == true {
+                    ////////// Assembling AA sequences //////////
+                    // Initialize and build assembling sequence table
+                    isScFv := len(columns.getColumns("scFvDetect")) > 0
+                    assemInit := utils.initializeAssemSeqTable(pframes, columns, datasetSpec, isSingleCell, isScFv)
+                    assemSeqTableBuilt := assemInit.assemSeqTable
+                    bulkChain := assemInit.bulkChain
+                    seqCols := assemInit.seqCols
+
+                    // Convert assembling feature sequences to FASTA via sub-template
+                    assemFastaTpl := assets.importTemplate(":assembling-fasta")
+                    assem := render.create(assemFastaTpl, {
+                        inputTsv: assemSeqTableBuilt,
+                        keyColumn: "clonotypeKey",
+                        finalClonotypes: finalClonotypes,
+                        isSingleCell: isSingleCell,
+                        bulkChain: bulkChain
+                    })
+                    //outputs["assemblingAnarci"] = assem.output("anarci", 24 * 60 * 60 * 1000)
+                    kabatFile := assem.output("kabat", 24 * 60 * 60 * 1000)
+                    // Derive feature name from assembling feature columns (prefer first column's feature)
+                    featName := ""
+                    if len(seqCols) > 0 {
+                        f := seqCols[0].spec.domain["pl7.app/vdj/feature"]
+                        if f != undefined { featName = f }
+                    }
+                    // Convert kabat.tsv to PFrame with proper specs (bulk: select heavy/light)
+                    kabatPf := xsv.importFile(kabatFile, "tsv", kabatConv.getColumns(datasetSpec, featName, bulkChain), {cpu: 1, mem: "8GiB"})
+                    outputs["assemblingKabatPf"] = pframes.exportFrame(kabatPf)
+                    outputs["kabatStatsContent"] = assem.output("kabatStats")
+                }
+            }
+        }
+    }
+
+	return {
+		outputs: outputs,
+		exports: exports
+	}
+})

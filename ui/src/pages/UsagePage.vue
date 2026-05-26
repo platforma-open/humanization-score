@@ -1,0 +1,56 @@
+<script setup lang="ts">
+import type { PredefinedGraphOption } from '@milaboratories/graph-maker';
+import { GraphMaker } from '@milaboratories/graph-maker';
+import strings from '@milaboratories/strings';
+import { computed } from 'vue';
+import { useApp } from '../app';
+
+const app = useApp();
+
+const defaultOptions = computed((): PredefinedGraphOption<'heatmap'>[] => {
+  return [
+    {
+      inputName: 'value',
+      selectedSource: {
+        kind: 'PColumn',
+        valueType: 'Int',
+        name: 'pl7.app/vdj/vjGeneUsage',
+        axesSpec: [],
+      },
+    },
+    {
+      inputName: 'x',
+      selectedSource: {
+        type: 'String',
+        name: 'pl7.app/vdj/geneHit',
+        domain: { 'pl7.app/vdj/reference': 'VGene' },
+      },
+    },
+    {
+      inputName: 'y',
+      selectedSource: {
+        type: 'String',
+        name: 'pl7.app/vdj/geneHit',
+        domain: { 'pl7.app/vdj/reference': 'JGene' },
+      },
+    },
+    {
+      inputName: 'tabBy',
+      selectedSource: {
+        type: 'String',
+        name: 'pl7.app/vdj/chain',
+      },
+    },
+  ];
+});
+</script>
+
+<template>
+  <GraphMaker
+    v-model="app.model.data.vjUsagePlotState"
+    chart-type="heatmap"
+    :p-frame="app.model.outputs.vjUsagePf"
+    :default-options="defaultOptions"
+    :status-text="{ noPframe: { title: strings.callToActions.configureSettingsAndRun } }"
+  />
+</template>

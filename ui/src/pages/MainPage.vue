@@ -1,0 +1,327 @@
+<script setup lang="ts">
+import { PlMultiSequenceAlignment } from '@milaboratories/multi-sequence-alignment';
+import strings from '@milaboratories/strings';
+import type { PlRef, PlSelectionModel } from '@platforma-sdk/model';
+import { createPlDataTableStateV2 } from '@platforma-sdk/model';
+import {
+  PlAgDataTableV2,
+  PlAlert,
+  PlBlockPage,
+  PlBtnGhost,
+  PlCheckbox,
+  PlDropdown,
+  PlDropdownRef,
+  PlIcon16,
+  PlNumberField,
+  PlRow,
+  PlSlideModal,
+  PlTooltip,
+  usePlDataTableSettingsV2,
+} from '@platforma-sdk/ui-vue';
+import { computed, ref, watch } from 'vue';
+import { useApp } from '../app';
+import {
+  isSequenceColumn,
+} from '../util';
+import FilterList from './components/FilterList.vue';
+import RankList from './components/RankList.vue';
+
+const app = useApp();
+
+const settingsOpen = ref(app.model.data.inputAnchor === undefined);
+const multipleSequenceAlignmentOpen = ref(false);
+
+// Watch for when the workflow starts running and close settings
+watch(() => app.model.outputs.isRunning, (isRunning) => {
+  if (isRunning) {
+    settingsOpen.value = false;
+  }
+});
+
+const tableSettings = usePlDataTableSettingsV2({
+  model: () => app.model.outputs.table,
+});
+
+const selection = ref<PlSelectionModel>({
+  axesSpec: [],
+  selectedKeys: [],
+});
+
+// MSA's pf is keyed by the anchor's clonotype axis (axesSpec[1]):
+// `pl7.app/vdj/clonotypeKey` for bulk, `pl7.app/vdj/scClonotypeKey` for single cell.
+// The table can span a composite axesSpec PFrame can't align with MSA's 1-axis
+// sequence columns, so project the selection down to that axis.
+const msaSelection = computed<PlSelectionModel>(() => {
+  const sel = selection.value;
+  const msaAxisName = app.model.outputs.inputAnchorSpec?.axesSpec?.[1]?.name;
+  if (!msaAxisName) return { axesSpec: [], selectedKeys: [] };
+  const idx = sel.axesSpec.findIndex((a) => a.name === msaAxisName);
+  if (idx < 0) return { axesSpec: [], selectedKeys: [] };
+  return {
+    axesSpec: [sel.axesSpec[idx]],
+    selectedKeys: sel.selectedKeys.map((k) => [k[idx]]),
+  };
+});
+
+// Temporary typed bridge until model types are regenerated
+const kabatNumbering = computed<boolean>({
+  get: () => (app.model.data.kabatNumbering ?? false),
+  set: (v: boolean) => (app.model.data.kabatNumbering = v),
+});
+
+// Special value for "No diversification" option
+const NO_DIVERSIFICATION_VALUE = '__no_diversification__';
+
+// Cluster column options with "No diversification" prepended
+// Transform ref-based options to value-based options using JSON.stringify
+const clusterColumnOptionsWithNone = computed(() => {
+  const options = app.model.outputs.clusterColumnOptions ?? [];
+  return [
+    { label: 'No diversification (allow similar sequences)', value: NO_DIVERSIFICATION_VALUE },
+    ...options.map((o) => ({
+      label: o.label,
+      value: JSON.stringify(o.ref),
+    })),
+  ];
+});
+
+// Selected cluster column value for the dropdown
+const selectedClusterColumnValue = computed<string | undefined>({
+  get: () => {
+    if (!app.model.data.diversificationColumn) return NO_DIVERSIFICATION_VALUE;
+    return JSON.stringify(app.model.data.diversificationColumn);
+  },
+  set: (v: string | undefined) => {
+    app.model.data.diversificationColumn
+        = (v === NO_DIVERSIFICATION_VALUE || v === undefined) ? undefined : JSON.parse(v) as PlRef;
+  },
+});
+
+// Clear diversificationColumn when inputAnchor changes (old value is invalid for new dataset)
+watch(
+  () => app.model.data.inputAnchor,
+  (newAnchor, oldAnchor) => {
+    if (oldAnchor && newAnchor && JSON.stringify(oldAnchor) !== JSON.stringify(newAnchor)) {
+      app.model.data.diversificationColumn = undefined;
+    }
+  },
+);
+
+// Auto-set default diversificationColumn when options become available
+watch(
+  () => app.model.outputs.clusterColumnOptions,
+  (options) => {
+    if (options && options.length > 0 && !app.model.data.diversificationColumn) {
+      app.model.data.diversificationColumn = options[0].ref;
+    }
+  },
+  { immediate: true },
+);
+
+// Preset options for workflow type
+const NO_PRESET_VALUE = '__no_preset__';
+
+const isPeptideModality = computed(() => app.model.outputs.modality === 'peptide');
+
+const presetOptions = computed(() => {
+  if (isPeptideModality.value) {
+    return [
+      { label: 'None', value: NO_PRESET_VALUE },
+      { label: 'Peptide', value: 'peptide' },
+    ];
+  }
+  return [
+    { label: 'None', value: NO_PRESET_VALUE },
+    { label: 'In Vivo', value: 'in-vivo' },
+    { label: 'In Vitro', value: 'in-vitro' },
+  ];
+});
+
+const selectedPresetValue = computed<string>({
+  get: () => app.model.data.preset ?? NO_PRESET_VALUE,
+  set: (v: string) => {
+    app.model.data.preset = v === NO_PRESET_VALUE ? undefined : v as 'in-vivo' | 'in-vitro' | 'peptide';
+  },
+});
+
+// Reset preset when inputAnchor or modality changes (clears stale presets when
+watch(
+  [() => app.model.data.inputAnchor, () => app.model.outputs.modality],
+  () => {
+    app.model.data.preset = undefined;
+  },
+);
+
+// Detect if selected dataset is Immunoglobulins (IG) vs TCR
+const isIGDataset = computed<boolean | undefined>(() => {
+  const spec = app.model.outputs.inputAnchorSpec;
+  if (!spec?.axesSpec || spec.axesSpec.length < 2) return undefined;
+
+  // Single cell: second axis has receptor domain
+  const isSingleCell = spec.axesSpec?.[1]?.name === 'pl7.app/vdj/scClonotypeKey';
+  if (isSingleCell) {
+    const receptor = spec.axesSpec?.[1]?.domain?.['pl7.app/vdj/receptor'];
+    return receptor === 'IG';
+  }
+
+  // Bulk: first second axis has chain domain
+  const chain = spec.axesSpec?.[1]?.domain?.['pl7.app/vdj/chain'];
+  return chain === 'IGHeavy' || chain === 'IGLight';
+});
+
+const validateTopClonotypes = (value: number | undefined): string | undefined => {
+  if (value === undefined) {
+    return 'This field is required';
+  }
+  if (value < 2) {
+    return 'Value must be higher or equal than 2';
+  }
+  return undefined;
+};
+
+// Disable and reset Kabat until sampling number is set
+const isSamplingConfigured = computed<boolean>(() => app.model.data.topClonotypes !== undefined);
+watch(() => app.model.data.topClonotypes, (newVal) => {
+  if (newVal === undefined) kabatNumbering.value = false;
+});
+
+// Reset table state when dataset or Kabat toggle changes to re-apply defaults (like optional visibility)
+watch(() => [app.model.data.inputAnchor, app.model.data.kabatNumbering], () => {
+  app.model.data.tableState = createPlDataTableStateV2();
+});
+</script>
+
+<template>
+  <PlBlockPage
+    v-model:subtitle="app.model.data.customBlockLabel"
+    :subtitle-placeholder="app.model.data.defaultBlockLabel"
+    title="Lead Selection"
+  >
+    <template #append>
+      <PlBtnGhost
+        icon="dna"
+        @click.stop="() => (multipleSequenceAlignmentOpen = true)"
+      >
+        Multiple Sequence Alignment
+      </PlBtnGhost>
+      <PlBtnGhost
+        icon="settings"
+        @click.stop="() => (settingsOpen = true)"
+      >
+        Settings
+      </PlBtnGhost>
+    </template>
+    <PlAlert v-if="app.model.outputs.kabatWarning" type="warn">
+      {{ app.model.outputs.kabatWarning }}
+    </PlAlert>
+    <PlAgDataTableV2
+      v-model="app.model.data.tableState"
+      v-model:selection="selection"
+      :settings="tableSettings"
+      :not-ready-text="strings.callToActions.configureSettingsAndRun"
+      :no-rows-text="strings.states.noDataAvailable"
+      show-export-button
+      disable-filters-panel
+    />
+    <PlSlideModal v-model="settingsOpen" :close-on-outside-click="true">
+      <template #title>Settings</template>
+
+      <!-- First element: Select dataset -->
+      <PlDropdownRef
+        v-model="app.model.data.inputAnchor"
+        :options="app.model.outputs.inputOptions"
+        :style="{ width: '320px' }"
+        label="Select dataset"
+        clearable
+        required
+      />
+
+      <!-- Number of leads to select -->
+      <PlNumberField
+        v-model="app.model.data.topClonotypes"
+        :style="{ width: '320px' }"
+        label="Number of sequences to select"
+        :step="1"
+        :error-message="validateTopClonotypes(app.model.data.topClonotypes)"
+      >
+        <template #tooltip>
+          Total number of lead sequences that will be selected.
+        </template>
+      </PlNumberField>
+
+      <!-- Workflow preset selector -->
+      <PlDropdown
+        v-model="selectedPresetValue"
+        :options="presetOptions"
+        :style="{ width: '320px' }"
+        label="Workflow preset"
+      >
+        <template #tooltip>
+          Pre-configured ranking for common discovery workflows.
+          <br /><br />
+          <b>In Vivo (immunization/infection):</b> Ranks by In Vivo Score, calculated from clonal expansion, CDR mutations and germinal center selection metrics. Identifies immune-refined candidates.
+          <br /><br />
+          <b>In Vitro (display/panning):</b> — Ranks by enrichment across selection rounds. Identifies clones selected for target binding.
+          <br /><br />
+          <b>Peptide:</b> Ranks by all available numeric score columns (e.g., enrichment, sequence properties, liabilities). For peptide selection campaigns.
+        </template>
+      </PlDropdown>
+
+      <!-- Lead filtering section -->
+      <FilterList />
+
+      <!-- Lead sampling section -->
+      <template v-if="isSamplingConfigured && app.model.outputs.clusterColumnOptions && app.model.outputs.clusterColumnOptions.length > 0">
+        <PlRow>
+          Diversify by:
+          <PlTooltip>
+            <PlIcon16 name="info" />
+            <template #tooltip>Defines how sequences are grouped to ensure diversity in the selected panel.</template>
+          </PlTooltip>
+        </PlRow>
+
+        <PlDropdown
+          v-model="selectedClusterColumnValue"
+          :options="clusterColumnOptionsWithNone"
+          :style="{ width: '320px' }"
+          label="Cluster for diversification"
+        />
+      </template>
+
+      <RankList />
+
+      <template v-if="isSamplingConfigured && isIGDataset && !isPeptideModality">
+        <PlCheckbox v-model="kabatNumbering">
+          Apply Kabat numbering
+          <PlTooltip class="info" position="top">
+            <PlIcon16 name="info"/>
+            <template #tooltip>
+              Applies Kabat residue numbering to the variable (VDJ) region amino acid
+              sequences and annotates sequences with Kabat positions (per chain where applicable).
+            </template>
+          </PlTooltip>
+        </PlCheckbox>
+      </template>
+
+      <PlAlert
+        v-if="app.model.data.rankingOrder.some((order) => order.value === undefined)" type="warn"
+        :style="{ width: '320px' }"
+      >
+        {{ "Warning: Please remove or assign values to empty ranking columns" }}
+      </PlAlert>
+    </PlSlideModal>
+    <PlSlideModal
+      v-model="multipleSequenceAlignmentOpen"
+      width="100%"
+      :close-on-outside-click="false"
+    >
+      <template #title>Multiple Sequence Alignment</template>
+      <PlMultiSequenceAlignment
+        v-model="app.model.data.alignmentModel"
+        :sequence-column-predicate="isSequenceColumn"
+        :p-frame="app.model.outputs.pf?.ok ? app.model.outputs.pf.value : undefined"
+        :selection="msaSelection"
+      />
+    </PlSlideModal>
+  </PlBlockPage>
+</template>

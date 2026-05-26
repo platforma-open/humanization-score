@@ -1,0 +1,64 @@
+# @platforma-open/milaboratories.humanization-score.test
+
+## 1.2.5
+
+### Patch Changes
+
+- c85f63a: SDK update
+
+## 1.2.4
+
+### Patch Changes
+
+- 4855fff: dont show column header linker postfix and update sdk
+
+## 1.2.3
+
+### Patch Changes
+
+- 3e9c9ef: bump sdk for fix table query
+
+## 1.2.2
+
+### Patch Changes
+
+- 199e95d: Updated dependencies
+
+## 1.2.1
+
+### Patch Changes
+
+- a197d00: Update SDK
+
+## 1.2.0
+
+### Minor Changes
+
+- 00143a9: multiple clustering blocks fix, columns names fix, dependencies updates
+
+## 1.1.3
+
+### Patch Changes
+
+- edbd894: technical release
+- 6dc2d2b: technical release
+- e581493: technical release
+- 1c26f0d: technical release
+
+## 1.1.2
+
+### Patch Changes
+
+- technical release
+
+## 1.1.1
+
+### Patch Changes
+
+- 22b01ef: Updated SDK to support polars.
+
+## 1.1.0
+
+### Minor Changes
+
+- 208de2a: First version

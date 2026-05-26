@@ -1,0 +1,16 @@
+.test_auth.json
+node_modules/
+dist/
+block-pack/
+dev/
+work/
+log/
+.turbo
+vite.config.*.timestamp-*
+software/**/*.sw.json
+software/**/*.tgz
+.vscode
+*.tgz
+# BUG in vue-tsc, it enables incremental builds when we do not ask it
+ui/tsconfig.app.tsbuildinfo
+ui/tsconfig.node.tsbuildinfo

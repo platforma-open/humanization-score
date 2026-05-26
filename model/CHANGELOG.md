@@ -1,0 +1,389 @@
+# @platforma-open/milaboratories.humanization-score.model
+
+## 4.1.5
+
+### Patch Changes
+
+- 73fbf24: Recognize 3d-structure-clustering linkers when populating the cluster-column dropdown. The label is now extracted from the producer block's clustering trace element for both clonotype-clustering and 3d-structure-clustering sources.
+
+  Show the "Clone Id" axis-label column by default in the main lead-selection table (previously it was orderable but only visible from the optional-columns picker).
+
+## 4.1.4
+
+### Patch Changes
+
+- f4fb49e: Update SDK
+
+## 4.1.3
+
+### Patch Changes
+
+- c1cdb27: Revert udpate
+
+## 4.1.2
+
+### Patch Changes
+
+- 0b07f15: update dependencies
+- 2eff103: Update dependencies
+
+## 4.1.1
+
+### Patch Changes
+
+- c85f63a: SDK update
+
+## 4.1.0
+
+### Minor Changes
+
+- b812c7d: Track which filter step eliminated each clonotype (or marks it as a
+  survivor) and visualize the attrition in a new Selection page. The
+  sample-clonotypes script emits a selectionStage column per clone; the
+  workflow exposes it as selectionStagePf, and the block UI renders it
+  via GraphMaker's selection chart type.
+
+## 4.0.3
+
+### Patch Changes
+
+- 4855fff: dont show column header linker postfix and update sdk
+
+## 4.0.2
+
+### Patch Changes
+
+- 2a2533d: Fix minor issues
+- 461999c: Fix minor issues
+
+## 4.0.1
+
+### Patch Changes
+
+- dd754ae: Accept both pre- and post-peptide-adaptation spec names from upstream blocks so projects using either version remain functional:
+
+  - Preset filter/ranking allowlists now include `pl7.app/enrichment*` (clonotype-enrichment) and `pl7.app/developability*` (antibody-sequence-liabilities) alongside the legacy `pl7.app/vdj/`-prefixed names.
+  - Diversification dropdown, cluster-axis matching, hidden cluster-mapping column, and workflow-side linker matching now recognize both `pl7.app/clusterId` and `pl7.app/vdj/clusterId` axis names (clonotype-clustering rename).
+  - Cluster-size query uses a namePattern matching both `pl7.app/clustering/clusterSize` and `pl7.app/vdj/clustering/clusterSize`.
+
+## 4.0.0
+
+### Major Changes
+
+- 1c1c7c1: Support peptides
+
+## 3.2.0
+
+### Minor Changes
+
+- 2963224: Show table with partial data
+
+## 3.1.1
+
+### Patch Changes
+
+- 9faee69: Ensure that presets contain only expected filters and ranking columns
+
+## 3.1.0
+
+### Minor Changes
+
+- 23ba36d: update sdk for fixing loading axes data in table
+
+## 3.0.3
+
+### Patch Changes
+
+- 3e9c9ef: bump sdk for fix table query
+
+## 3.0.2
+
+### Patch Changes
+
+- 8fcb373: new export
+
+## 3.0.1
+
+### Patch Changes
+
+- 3229116: SDK update
+
+## 3.0.0
+
+### Major Changes
+
+- c2c2b06: VDJ Integration support, BlockV3 api migration
+
+## 2.2.1
+
+### Patch Changes
+
+- 199e95d: Updated dependencies
+
+## 2.2.0
+
+### Minor Changes
+
+- f54202c: Add isNA/isNotNA filter types for lead selection filters
+
+  Columns with discrete allowed values (like Structural Liabilities with None/Low/Medium/High) previously only offered "Is one of" / "Is not one of" filter types, making it impossible to filter by empty/NA values. Now all column types (numeric, string, and discrete) include "Is empty (NA)" and "Is not empty (NA)" filter options.
+
+## 2.1.1
+
+### Patch Changes
+
+- d80f198: fix filter options, update dependencies
+
+## 2.1.0
+
+### Minor Changes
+
+- 84a7fe5: Deal with ANARCI numbering issues
+
+## 2.0.4
+
+### Patch Changes
+
+- 1e872e3: Allow in filter options multiple choice filters without defaul valuet
+
+## 2.0.3
+
+### Patch Changes
+
+- f5800e7: Allow to use mutation columns in rank
+
+## 2.0.2
+
+### Patch Changes
+
+- 592b8dd: Fix lead filter
+
+## 2.0.1
+
+### Patch Changes
+
+- 60a81eb: Fix MSA row duplication for single cell data
+
+## 2.0.0
+
+### Major Changes
+
+- 590699a: Introduce diverisified ranking, in-vivo score estimation and workflow presets
+
+## 1.15.11
+
+### Patch Changes
+
+- c112c60: Fix hidden columns (e.g. Selected Leads) incorrectly appearing in table column controls by preserving original visibility annotations from workflow
+
+## 1.15.10
+
+### Patch Changes
+
+- 7db9d6c: Filter-out exports from main table
+
+## 1.15.9
+
+### Patch Changes
+
+- ff606b5: Implement multi-selection filters
+
+## 1.15.8
+
+### Patch Changes
+
+- 748d512: Ensure block labels are visible when there are columns with identical label
+
+## 1.15.7
+
+### Patch Changes
+
+- a197d00: Update SDK
+
+## 1.15.6
+
+### Patch Changes
+
+- dda8ecc: Show only KABAT sequence column, improve block label generation, use SDK strings for status messages
+
+## 1.15.5
+
+### Patch Changes
+
+- 9cb3d0b: Update block label
+
+## 1.15.4
+
+### Patch Changes
+
+- 6a912d1: Show running state for tables and graphs
+
+## 1.15.3
+
+### Patch Changes
+
+- accb214: correct table headers
+
+## 1.15.2
+
+### Patch Changes
+
+- 1ec3ac8: Make KABAT columns visible by default
+
+## 1.15.1
+
+### Patch Changes
+
+- 0b57c1b: Show only specific columns be default: Clone, Cluster Id, AA sequence and filter/rank columns
+
+## 1.15.0
+
+### Minor Changes
+
+- b201aaf: Improve cluster ranking, improve performance
+
+## 1.14.0
+
+### Minor Changes
+
+- 4ecbe6b: Improve cluster-based ranking
+
+## 1.13.0
+
+### Minor Changes
+
+- 00143a9: multiple clustering blocks fix, columns names fix, dependencies updates
+
+## 1.12.0
+
+### Minor Changes
+
+- 3825a42: Fix errors related to numeric properties that apply only to a subset of clonotypes and to multiple clustering blocks upstream
+
+## 1.11.0
+
+### Minor Changes
+
+- ccc8076: kabat numbering added
+
+## 1.10.3
+
+### Patch Changes
+
+- 44895be: Support parquet format
+
+## 1.10.2
+
+### Patch Changes
+
+- 65e8749: Minor bugs correction and SDK update
+
+## 1.10.1
+
+### Patch Changes
+
+- edbd894: technical release
+- 6dc2d2b: technical release
+- e581493: technical release
+- 1c26f0d: technical release
+
+## 1.10.0
+
+### Minor Changes
+
+- 67443d9: Move all calculations to prerun
+
+## 1.9.4
+
+### Patch Changes
+
+- technical release
+
+## 1.9.3
+
+### Patch Changes
+
+- 020a5b4: Update SDK and python
+
+## 1.9.2
+
+### Patch Changes
+
+- 22b01ef: Updated SDK to support polars.
+
+## 1.9.1
+
+### Patch Changes
+
+- 878a86a: Update packages versions
+
+## 1.9.0
+
+### Minor Changes
+
+- b499ab2: Add rank column
+
+## 1.8.0
+
+### Minor Changes
+
+- a435169: Move filters to settings and add prerun
+
+## 1.7.0
+
+### Minor Changes
+
+- 456ba67: Use ui state for ranking metadata
+
+## 1.6.0
+
+### Minor Changes
+
+- 792dea6: Migrate to PlElementList
+
+### Patch Changes
+
+- f0a7b9b: Upgrade to use latest PlAgDataTableV2 update
+
+## 1.5.1
+
+### Patch Changes
+
+- 44c4b32: PlAgDataTableV2 upgrade
+
+## 1.5.0
+
+### Minor Changes
+
+- bf454d4: Default ranking column in case user does not select one
+- 4990fd8: Fix empty top and ranking cases
+
+## 1.4.0
+
+### Minor Changes
+
+- 2e24f7a: Disable default normalization in VJ usage plot and change spectratype/VJ usage script to run on top clonotypes if provided
+
+## 1.3.0
+
+### Minor Changes
+
+- 5ee90ac: Add CDR3 spectratype
+
+## 1.2.1
+
+### Patch Changes
+
+- 339a780: Main backbone
+
+## 1.2.0
+
+### Minor Changes
+
+- 1990e84: Fix table
+
+## 1.1.0
+
+### Minor Changes
+
+- 208de2a: First version
