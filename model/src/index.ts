@@ -47,7 +47,7 @@ export const platforma = BlockModelV3.create(dataModel)
     if (!data.inputAnchor) throw new Error('Input anchor is required');
 
     return {
-      customBlockLabel: data.customBlockLabel,
+      customBlockLabel: data.customBlockLabel || 'Humanness Score',
       inputAnchor: data.inputAnchor,
       mem: data.mem,
     };

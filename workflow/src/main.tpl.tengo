@@ -11,9 +11,9 @@ text := import("text")
 json := import("json")
 math := import("math")
 
-calculateLiabilitiesTpl := assets.importTemplate(":clonotype-liabilities")
+calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
 processTpl := assets.importTemplate(":clonotype-process")
-peptideLiabilitiesTpl := assets.importTemplate(":peptide-liabilities")
+peptideHumannessTpl := assets.importTemplate(":peptide-humanness")
 peptideProcessTpl := assets.importTemplate(":peptide-process")
 
 // Prepare phase of the workflow - collects and sets up required data
@@ -102,7 +102,7 @@ wf.body(func(args) {
 		seqTableBuilder.cpu(1)
 		seqTable := seqTableBuilder.build()
 
-		liabilitiesResultCalc := render.create(peptideLiabilitiesTpl, {
+		liabilitiesResultCalc := render.create(peptideHumannessTpl, {
 			table: seqTable,
 			mem: args.mem
 		})
@@ -246,7 +246,7 @@ wf.body(func(args) {
 	seqTableBuilder.cpu(1)
 	seqTable := seqTableBuilder.build()
 
-	liabilitiesResultCalc := render.create(calculateLiabilitiesTpl, {
+	liabilitiesResultCalc := render.create(calculateHumannessTpl, {
 		table: seqTable,
 		mapping: hasAnnotations ? annotations[0].spec.annotations["pl7.app/sequence/annotation/mapping"] : undefined,
 		numberingSchema: numberingSchema,

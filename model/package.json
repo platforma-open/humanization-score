@@ -1,6 +1,6 @@
 {
   "name": "@platforma-open/milaboratories.humanization-score.model",
-  "version": "6.0.2",
+  "version": "0.1.0",
   "description": "Block model",
   "type": "module",
   "main": "dist/index.js",

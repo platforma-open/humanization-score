@@ -1,4 +1,4 @@
-// Peptide-mode liability calculation. Mirrors clonotype-liabilities.tpl.tengo
+// Peptide-mode humanness calculation. Mirrors clonotype-humanness.tpl.tengo
 // but invokes the peptide_main.py entry point (no per-region / chain logic,
 // no CDR-boundary annotations, no Cys-position checks).
 
