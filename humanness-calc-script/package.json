@@ -12,7 +12,7 @@
     "./dist/**/*"
   ],
   "dependencies": {
-    "@platforma-open/milaboratories.runenv-python-3": "catalog:"
+    "@platforma-open/milaboratories.runenv-python-3.12.10-humanness": "0.1.0"
   },
   "devDependencies": {
     "@platforma-sdk/package-builder": "catalog:"
@@ -24,7 +24,7 @@
           "artifact": {
             "type": "python",
             "registry": "platforma-open",
-            "environment": "@platforma-open/milaboratories.runenv-python-3:3.12.10",
+            "environment": "@platforma-open/milaboratories.runenv-python-3.12.10-humanness:main",
             "dependencies": {
               "toolset": "pip",
               "requirements": "requirements.txt"
@@ -42,7 +42,7 @@
           "artifact": {
             "type": "python",
             "registry": "platforma-open",
-            "environment": "@platforma-open/milaboratories.runenv-python-3:3.12.10",
+            "environment": "@platforma-open/milaboratories.runenv-python-3.12.10-humanness:main",
             "dependencies": {
               "toolset": "pip",
               "requirements": "requirements.txt"

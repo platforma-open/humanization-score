@@ -1,50 +1,63 @@
 #!/usr/bin/env python3
 """Antibody-mode entry point for humanness scoring.
 
-STUB: replace with real scorer in next step.
-
 Pipeline overview:
 - Input TSV: one row per clonotype, keyed by `clonotypeKey`. Contains one or more
   amino-acid sequence columns (e.g. "CDR3 aa", "Heavy CDR3 aa", "FR1 aa", ...).
-- Output TSV: two columns — `clonotypeKey` and `humanness_score` (Float, 0..100).
+- Output TSV: two columns — `clonotypeKey` and `humanness_score` (Float, 0..100,
+  may be null for sequences too short to score).
 
 For each row we collect every column whose name ends with " aa" (case-insensitive)
-and is not an annotation column, concatenate the sequences, then compute the stub
-score as the percentage of characters that are standard amino acids.
+and is not an annotation column, concatenate the sequences, then compute the
+humanness score via promb's `compute_peptide_content` over the `human-oas` DB
+(fraction of overlapping 9-mers found in human antibody repertoires), rescaled
+to [0, 100]. Higher = more human.
+
+Short sequences (<9 aa, the promb 9-mer window) and any scoring exceptions
+yield a null score so the pipeline never fails on a single bad row.
 
 The script tolerates extra CLI flags (`-m`, `-o`, `--numbering-schema`,
 `--custom-liabilities`, `--use-predefined-liabilities`,
 `--disabled-predefined-liabilities`, `--output-regions-found`) so the existing
 workflow tengo template can call it without changes. Those flags are ignored
-in the stub except `--output-regions-found`, which still writes an empty list
-so downstream tengo logic doesn't break.
+here except `--output-regions-found`, which still writes an empty list so
+downstream tengo logic doesn't break.
 """
 import argparse
 import json
 import sys
+from functools import lru_cache
 
 import polars as pl
 
 
-# Standard 20 amino acids — used to compute the stub humanness score.
-_STANDARD_AA = set("ACDEFGHIKLMNPQRSTVWY")
+# Minimum window length used by promb on the human-oas DB. Sequences shorter
+# than this cannot produce a single 9-mer and are unscoreable.
+_MIN_WINDOW = 9
 
 
-def humanness_stub(seq: str | None) -> float:
-    """Detereministic stub humanness score in [0, 100].
+@lru_cache(maxsize=1)
+def _get_db():
+    """Lazy-load the promb `human-oas` database (cached per process)."""
+    from promb import init_db
 
-    Returns the percentage of characters in `seq` that are standard amino
-    acids (ACDEFGHIKLMNPQRSTVWY). Empty / non-string inputs map to 0.0.
+    return init_db("human-oas")
 
-    # STUB: replace with real scorer in next step.
+
+def humanness(seq: str | None) -> float | None:
+    """OASis-style humanness score in [0, 100] (None if unscoreable).
+
+    Computes the fraction of 9-mer windows in `seq` that appear in the
+    promb `human-oas` peptide set (curated human antibody repertoires)
+    and rescales 0..1 -> 0..100. Higher = more human.
     """
-    if not seq or not isinstance(seq, str):
-        return 0.0
-    total = len(seq)
-    if total == 0:
-        return 0.0
-    human_like = sum(1 for c in seq.upper() if c in _STANDARD_AA)
-    return round(100.0 * human_like / total, 2)
+    if not isinstance(seq, str) or len(seq) < _MIN_WINDOW:
+        return None
+    try:
+        frac = _get_db().compute_peptide_content(seq)
+    except Exception:
+        return None
+    return round(float(frac) * 100.0, 2)
 
 
 def _identify_sequence_columns(columns: list[str]) -> list[str]:
@@ -60,11 +73,11 @@ def _identify_sequence_columns(columns: list[str]) -> list[str]:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Compute stub humanness score per clonotype.")
+    p = argparse.ArgumentParser(description="Compute promb/OASis humanness score per clonotype.")
     p.add_argument("input_tsv", help="Input TSV")
     p.add_argument("output_tsv", help="Output TSV")
     # The flags below are kept for CLI compatibility with the existing tengo
-    # workflow. They are ignored in the stub.
+    # workflow. They are ignored here.
     p.add_argument("-m", "--label-map", default=None)
     p.add_argument("-o", "--output-label-map", default=None)
     p.add_argument("--output-regions-found", default=None)
@@ -92,10 +105,10 @@ def main() -> None:
             [pl.col(c).cast(pl.Utf8).fill_null("") for c in seq_cols],
             separator="",
         )
-        score_series = concat_expr.map_elements(humanness_stub, return_dtype=pl.Float64).alias("humanness_score")
+        score_series = concat_expr.map_elements(humanness, return_dtype=pl.Float64).alias("humanness_score")
         df_scored = df.with_columns(score_series)
     else:
-        df_scored = df.with_columns(pl.lit(0.0).cast(pl.Float64).alias("humanness_score"))
+        df_scored = df.with_columns(pl.lit(None).cast(pl.Float64).alias("humanness_score"))
 
     output_cols: list[str] = []
     if has_key:

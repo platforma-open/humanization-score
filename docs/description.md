@@ -13,3 +13,33 @@ Antibody/TCR inputs additionally produce:
 - **Is Productive** — `Pass`/`Fail`: fails on stop codons or out-of-frame sequences
 
 You can extend the predefined liability set with custom motifs defined in the block settings or imported from a JSON file.
+
+# Humanness Score
+
+In addition to liability-based developability outputs, the block emits a **Humanness Score** column for both antibody/TCR and peptide modalities.
+
+## Method
+
+- **Library**: [promb](https://github.com/MSDLLCpapers/promb) v1.0.2 (PyPI; MIT license).
+- **Database**: `human-oas` — curated 9-mer peptide set derived from human antibody repertoires (Observed Antibody Space).
+- **Function**: `PrombDB.compute_peptide_content(seq)` — fraction of 9-mer windows in `seq` found in the human-oas peptide set, returned as a value in `[0, 1]`.
+- **Output**: rescaled to `[0, 100]` (multiplied by 100, rounded to 2 decimals). **Higher = more human.** Not inverted; no transformation.
+- **Coverage**: alignment-free, works uniformly across modalities (VHH, mAb, scFv, peptide) without per-modality configuration. For antibody/TCR mode, all `* aa` sequence columns of a clonotype are concatenated and scored as one string.
+- **Unscoreable inputs**: sequences shorter than the 9-mer window (`<9 aa`), empty strings, or any internal scoring exception yield a null score (the cell is empty in the output TSV); the pipeline never fails on a single bad row.
+
+## Validation and rationale
+
+The OASis-style 9-mer match is conceptually inherited from BioPhi/OASis (Prihoda et al., *mAbs* 2022, [doi:10.1080/19420862.2021.2020203](https://doi.org/10.1080/19420862.2021.2020203)). The metric correlates with humanness of FDA-approved therapeutic antibodies. It is **not** a direct predictor of anti-drug-antibody (ADA) response or immunogenicity. The score is annotated with `pl7.app/isScore: "true"` and `pl7.app/score/rankingOrder: "decreasing"` so downstream selection blocks (Lead Selection, etc.) can rank candidates with higher = better.
+
+## Known limitations
+
+- Sequences shorter than 9 aa are not scoreable (output: null).
+- The `human-oas` corpus is the only database wired in; framework vs CDR are not weighted differently — every 9-mer window contributes equally.
+- promb is a single-maintainer repository (latest release May 2025); should be re-validated when upstream updates land.
+
+## Throughput
+
+Measured locally on `humanness-calc-script` (Apple Silicon, Python 3.13):
+
+- **Database initialization** (`init_db('human-oas')`): ~1.75 s (one-time per process; cached via `functools.lru_cache`).
+- **Per-sequence latency** on full-length VH sequences (~115 aa): ~0.015 ms / sequence (30-sequence batch). Per-row scoring overhead is dominated by polars I/O, not promb.

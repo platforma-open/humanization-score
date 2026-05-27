@@ -49,10 +49,13 @@ self.body(func(args) {
 				valueType: "Double",
 				annotations: {
 					"pl7.app/label": "Humanness Score",
-					"pl7.app/description": "Stub humanness score in [0, 100]. STUB: replace with real scorer in next step.",
+					"pl7.app/description": "Promb / OASis (human-oas) humanness score in [0, 100]; fraction of 9-mers found in human antibody repertoires, rescaled. Higher = more human.",
 					"pl7.app/table/visibility": "default",
 					"pl7.app/table/orderPriority": "100",
-					"pl7.app/format": ".2~f"
+					"pl7.app/format": ".2~f",
+					"pl7.app/isScore": "true",
+					"pl7.app/score/rankingOrder": "decreasing",
+					"pl7.app/score/method": "promb / OASis (human-oas)"
 				}
 			}
 		}

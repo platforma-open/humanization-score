@@ -20,5 +20,10 @@
     "typescript": "catalog:",
     "shx": "catalog:"
   },
-  "packageManager": "pnpm@9.12.0"
+  "packageManager": "pnpm@9.12.0",
+  "pnpm": {
+    "overrides": {
+      "@platforma-open/milaboratories.runenv-python-3.12.10-humanness": "file:../runenv-python-3/python-3.12.10-humanness/package.tgz"
+    }
+  }
 }

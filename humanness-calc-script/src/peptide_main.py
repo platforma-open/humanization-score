@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Peptide-mode entry point for humanness scoring.
 
-STUB: replace with real scorer in next step.
-
 Input TSV: one peptide per row keyed by `variantKey`, with column `sequence aa`.
-Output TSV: `variantKey`, `peptide_aa`, `humanness_score` (Float, 0..100).
+Output TSV: `variantKey`, `peptide_aa`, `humanness_score` (Float, 0..100; may
+be null for sequences shorter than the promb 9-mer window).
 """
 import argparse
 import json
 
 import polars as pl
 
-from main import humanness_stub  # share the stub formula across modalities
+from main import humanness  # share the scorer across modalities
 
 
 def run(input_tsv: str, output_tsv: str) -> None:
@@ -22,7 +21,7 @@ def run(input_tsv: str, output_tsv: str) -> None:
             f"peptide_main: expected columns 'variantKey' and 'sequence aa'; got {df.columns}"
         )
 
-    scores = [humanness_stub(s if isinstance(s, str) else "") for s in df["sequence aa"].to_list()]
+    scores = [humanness(s if isinstance(s, str) else "") for s in df["sequence aa"].to_list()]
 
     out = df.select(
         "variantKey",
@@ -42,10 +41,10 @@ def _load_json_list(path: str | None) -> list:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Peptide humanness scorer (stub).")
+    parser = argparse.ArgumentParser(description="Peptide humanness scorer (promb / human-oas).")
     parser.add_argument("--input_tsv", required=True)
     parser.add_argument("--output_tsv", required=True)
-    # Compatibility flags — ignored by the stub.
+    # Compatibility flags — ignored.
     parser.add_argument("--use_predefined_liabilities", action="store_true")
     parser.add_argument("--disabled_predefined_liabilities", default=None)
     parser.add_argument("--custom_liabilities", default=None)
