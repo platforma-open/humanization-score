@@ -1,7 +1,6 @@
 wf := import("@platforma-sdk/workflow-tengo:workflow")
 render := import("@platforma-sdk/workflow-tengo:render")
 smart := import("@platforma-sdk/workflow-tengo:smart")
-file := import("@platforma-sdk/workflow-tengo:file")
 exec := import("@platforma-sdk/workflow-tengo:exec")
 assets := import("@platforma-sdk/workflow-tengo:assets")
 xsv := import("@platforma-sdk/workflow-tengo:pframes.xsv")
@@ -16,9 +15,6 @@ calculateLiabilitiesTpl := assets.importTemplate(":clonotype-liabilities")
 processTpl := assets.importTemplate(":clonotype-process")
 peptideLiabilitiesTpl := assets.importTemplate(":peptide-liabilities")
 peptideProcessTpl := assets.importTemplate(":peptide-process")
-prerunTpl := assets.importTemplate(":prerun")
-
-wf.setPreRun(prerunTpl)
 
 // Prepare phase of the workflow - collects and sets up required data
 wf.prepare(func(args) {
@@ -108,9 +104,6 @@ wf.body(func(args) {
 
 		liabilitiesResultCalc := render.create(peptideLiabilitiesTpl, {
 			table: seqTable,
-			customLiabilities: args.customLiabilities,
-			usePredefinedLiabilities: args.usePredefinedLiabilities,
-			disabledPredefinedLiabilities: args.disabledPredefinedLiabilities,
 			mem: args.mem
 		})
 		liabilitiesResult := liabilitiesResultCalc.output("result", 24 * 60 * 60 * 1000)
@@ -119,7 +112,6 @@ wf.body(func(args) {
 			liabilitiesTable: liabilitiesResult,
 			blockId: blockId,
 			customBlockLabel: args.customBlockLabel,
-			defaultBlockLabel: args.defaultBlockLabel,
 			datasetSpec: datasetSpec,
 			mem: args.mem
 		})
@@ -258,9 +250,6 @@ wf.body(func(args) {
 		table: seqTable,
 		mapping: hasAnnotations ? annotations[0].spec.annotations["pl7.app/sequence/annotation/mapping"] : undefined,
 		numberingSchema: numberingSchema,
-		customLiabilities: args.customLiabilities,
-		usePredefinedLiabilities: args.usePredefinedLiabilities,
-		disabledPredefinedLiabilities: args.disabledPredefinedLiabilities,
 		mem: args.mem
 	})
 
@@ -270,7 +259,6 @@ wf.body(func(args) {
 		liabilitiesTable: liabilitiesResult,
 		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
-		defaultBlockLabel: args.defaultBlockLabel,
 		mem: args.mem,
 		params: smart.createJsonResource({
 			datasetSpec: datasetSpec,

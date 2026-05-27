@@ -15,16 +15,8 @@ to [0, 100]. Higher = more human.
 
 Short sequences (<9 aa, the promb 9-mer window) and any scoring exceptions
 yield a null score so the pipeline never fails on a single bad row.
-
-The script tolerates extra CLI flags (`-m`, `-o`, `--numbering-schema`,
-`--custom-liabilities`, `--use-predefined-liabilities`,
-`--disabled-predefined-liabilities`, `--output-regions-found`) so the existing
-workflow tengo template can call it without changes. Those flags are ignored
-here except `--output-regions-found`, which still writes an empty list so
-downstream tengo logic doesn't break.
 """
 import argparse
-import json
 import sys
 from functools import lru_cache
 
@@ -76,17 +68,6 @@ def main() -> None:
     p = argparse.ArgumentParser(description="Compute promb/OASis humanness score per clonotype.")
     p.add_argument("input_tsv", help="Input TSV")
     p.add_argument("output_tsv", help="Output TSV")
-    # The flags below are kept for CLI compatibility with the existing tengo
-    # workflow. They are ignored here.
-    p.add_argument("-m", "--label-map", default=None)
-    p.add_argument("-o", "--output-label-map", default=None)
-    p.add_argument("--output-regions-found", default=None)
-    p.add_argument("--numbering-schema", default=None)
-    p.add_argument("--custom-liabilities", default=None)
-    p.add_argument("--use-predefined-liabilities", default=None)
-    p.add_argument("--disabled-predefined-liabilities", default=None)
-    # Legacy flag still accepted for compatibility, ignored.
-    p.add_argument("--include-liabilities", default=None)
     args = p.parse_args()
 
     try:
@@ -123,21 +104,6 @@ def main() -> None:
         print(f"Output table written to {args.output_tsv}")
     except Exception as e:
         print(f"Error writing output TSV: {e}", file=sys.stderr)
-
-    # Compatibility: tengo template subscribes to these output files. Write
-    # empty-but-valid JSON so downstream rendering doesn't fail.
-    if args.output_label_map:
-        try:
-            with open(args.output_label_map, "w") as f:
-                json.dump({}, f)
-        except IOError as e:
-            print(f"Error writing label map: {e}", file=sys.stderr)
-    if args.output_regions_found:
-        try:
-            with open(args.output_regions_found, "w") as f:
-                json.dump([], f)
-        except IOError as e:
-            print(f"Error writing regions-found: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

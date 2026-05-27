@@ -6,7 +6,6 @@ Output TSV: `variantKey`, `peptide_aa`, `humanness_score` (Float, 0..100; may
 be null for sequences shorter than the promb 9-mer window).
 """
 import argparse
-import json
 
 import polars as pl
 
@@ -30,29 +29,11 @@ def run(input_tsv: str, output_tsv: str) -> None:
     out.write_csv(output_tsv, separator="\t")
 
 
-def _load_json_list(path: str | None) -> list:
-    if not path:
-        return []
-    with open(path) as f:
-        value = json.load(f)
-    if not isinstance(value, list):
-        raise ValueError(f"{path} must be a JSON list, got {type(value).__name__}")
-    return value
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description="Peptide humanness scorer (promb / human-oas).")
     parser.add_argument("--input_tsv", required=True)
     parser.add_argument("--output_tsv", required=True)
-    # Compatibility flags — ignored.
-    parser.add_argument("--use_predefined_liabilities", action="store_true")
-    parser.add_argument("--disabled_predefined_liabilities", default=None)
-    parser.add_argument("--custom_liabilities", default=None)
     args = parser.parse_args()
-
-    # Load + ignore (validates JSON exists so workflow plumbing stays happy).
-    _load_json_list(args.disabled_predefined_liabilities)
-    _load_json_list(args.custom_liabilities)
 
     run(input_tsv=args.input_tsv, output_tsv=args.output_tsv)
 

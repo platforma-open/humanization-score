@@ -65,7 +65,7 @@ catalogs:
       version: 3.5.24
 
 overrides:
-  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness': link:../runenv-python-3/python-3.12.10-humanness
+  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness': link:/Users/aleksandr/GIT/MILAB/runenv-python-3/python-3.12.10-humanness/
 
 importers:
 
@@ -106,7 +106,7 @@ importers:
   humanness-calc-script:
     dependencies:
       '@platforma-open/milaboratories.runenv-python-3.12.10-humanness':
-        specifier: link:../../runenv-python-3/python-3.12.10-humanness
+        specifier: link:/Users/aleksandr/GIT/MILAB/runenv-python-3/python-3.12.10-humanness/
         version: link:../../runenv-python-3/python-3.12.10-humanness
     devDependencies:
       '@platforma-sdk/package-builder':
@@ -5150,7 +5150,7 @@ snapshots:
       oxfmt: 0.35.0
       oxlint: 1.43.0
       rolldown: 1.0.0-rc.18
-      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.6.3))
+      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.9.3))
       rollup-plugin-copy: 3.5.0
       rollup-plugin-sourcemaps2: 0.5.4(@types/node@24.5.2)(rollup@4.55.1)
       typescript: 5.9.3
@@ -5190,7 +5190,7 @@ snapshots:
       oxfmt: 0.35.0
       oxlint: 1.43.0
       rolldown: 1.0.0-rc.18
-      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.6.3))
+      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.9.3))
       rollup-plugin-copy: 3.5.0
       rollup-plugin-sourcemaps2: 0.5.4(@types/node@24.5.2)(rollup@4.55.1)
       typescript: 5.9.3
@@ -7919,7 +7919,7 @@ snapshots:
 
   reusify@1.0.4: {}
 
-  rolldown-plugin-dts@0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.6.3)):
+  rolldown-plugin-dts@0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.9.3)):
     dependencies:
       '@babel/generator': 8.0.0-rc.3
       '@babel/helper-validator-identifier': 8.0.0-rc.3
