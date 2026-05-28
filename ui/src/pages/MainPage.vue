@@ -1,30 +1,18 @@
 <script setup lang="ts">
 import strings from '@milaboratories/strings';
-import type { CustomLiability } from '@platforma-open/milaboratories.humanization-score.model';
-import { liabilityTypes, predefinedLiabilityNames } from '@platforma-open/milaboratories.humanization-score.model';
 import type { PlRef } from '@platforma-sdk/model';
 import {
   PlAccordionSection,
   PlAgDataTableV2,
-  PlAlert,
   PlBlockPage,
   PlBtnGhost,
-  PlBtnSecondary,
-  PlCheckbox,
-  PlDropdown,
-  PlDropdownMulti,
   PlDropdownRef,
-  PlElementList,
-  PlFileInput,
   PlMaskIcon24,
   PlNumberField,
   PlSlideModal,
-  PlTextField,
-  PlTooltip,
-  ReactiveFileContent,
   usePlDataTableSettingsV2,
 } from '@platforma-sdk/ui-vue';
-import { computed, ref, watch } from 'vue';
+import { ref, watch } from 'vue';
 import { useApp } from '../app';
 
 const app = useApp();
@@ -40,6 +28,8 @@ const tableSettings = usePlDataTableSettingsV2({
 
 const settingsIsShown = ref(app.model.data.inputAnchor === undefined);
 
+const resourceSectionOpen = ref(false);
+
 watch(
   () => app.model.outputs.isRunning,
   (isRunning, wasRunning) => {
@@ -48,234 +38,13 @@ watch(
     }
   },
 );
-
-// ── Predefined liabilities ────────────────────────────────────────────────────
-
-const predefinedSectionOpen = ref(false);
-const advancedSectionOpen = ref(false);
-const resourceSectionOpen = ref(false);
-
-const isPeptide = computed(() => app.model.outputs.modality === 'peptide');
-
-// Predefined liability list filtered by modality (per applicableTo). Defaults
-// to the full list when modality is undefined (during initial load).
-const predefinedItems = computed(() =>
-  liabilityTypes
-    .filter((lt) => {
-      const modality = app.model.outputs.modality;
-      if (!modality) return true;
-      return lt.applicableTo.includes(modality as 'antibody' | 'peptide');
-    })
-    .map((lt) => ({ ...lt })),
-);
-
-function isLiabilityEnabled(item: (typeof liabilityTypes)[number]): boolean {
-  const disabled = app.model.data.disabledPredefinedLiabilities ?? [];
-  return !disabled.includes(item.value);
-}
-
-function toggleLiability(item: (typeof liabilityTypes)[number]): void {
-  const disabled = app.model.data.disabledPredefinedLiabilities ?? [];
-  if (disabled.includes(item.value)) {
-    app.model.data.disabledPredefinedLiabilities = disabled.filter((v) => v !== item.value);
-  } else {
-    app.model.data.disabledPredefinedLiabilities = [...disabled, item.value];
-  }
-}
-
-const fixabilityLabel: Record<string, string> = {
-  easily_fixable: 'Easy fix',
-  fixable: 'Fixable',
-  hard_to_fix: 'Hard to fix',
-  structural: 'Structural',
-};
-
-// ── Custom liabilities ────────────────────────────────────────────────────────
-
-const regionOptions = [
-  { value: 'CDR1', label: 'CDR1' },
-  { value: 'CDR2', label: 'CDR2' },
-  { value: 'CDR3', label: 'CDR3' },
-  { value: 'FR1', label: 'FR1' },
-  { value: 'FR2', label: 'FR2' },
-  { value: 'FR3', label: 'FR3' },
-  { value: 'FR4', label: 'FR4' },
-];
-
-const riskLevelOptions = [
-  { value: 'Low', label: 'Low' },
-  { value: 'Medium', label: 'Medium' },
-  { value: 'High', label: 'High' },
-];
-
-const fixabilityOptions = [
-  { value: 'easily_fixable', label: 'Easy fix' },
-  { value: 'fixable', label: 'Fixable' },
-  { value: 'hard_to_fix', label: 'Hard to fix' },
-];
-
-const customItems = computed({
-  get: () => app.model.data.customLiabilities ?? [],
-  set: (value) => { app.model.data.customLiabilities = value; },
-});
-
-const expandedIndices = ref<Set<number>>(new Set());
-
-function addCustomLiability(): void {
-  const current = app.model.data.customLiabilities ?? [];
-  const newItem: CustomLiability = {
-    name: '',
-    pattern: '',
-    riskLevel: 'Medium',
-    fixability: 'fixable',
-    // Peptide mode: rule applies to the whole sequence
-    regions: isPeptide.value ? [] : ['CDR1', 'CDR2', 'CDR3'],
-  };
-  expandedIndices.value = new Set([...expandedIndices.value, current.length]);
-  app.model.data.customLiabilities = [...current, newItem];
-}
-
-function removeCustomLiability(index: number): void {
-  const current = [...(app.model.data.customLiabilities ?? [])];
-  current.splice(index, 1);
-  const next = new Set<number>();
-  for (const i of expandedIndices.value) {
-    if (i < index) next.add(i);
-    else if (i > index) next.add(i - 1);
-  }
-  expandedIndices.value = next;
-  app.model.data.customLiabilities = current;
-}
-
-function toggleExpanded(index: number): void {
-  const next = new Set(expandedIndices.value);
-  if (next.has(index)) next.delete(index);
-  else next.add(index);
-  expandedIndices.value = next;
-}
-
-function isPatternValid(pattern: string): boolean {
-  if (!pattern) return false;
-  try {
-    new RegExp(pattern);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-function isPredefinedName(index: number): boolean {
-  const name = (app.model.data.customLiabilities ?? [])[index]?.name;
-  if (!name) return false;
-  return predefinedLiabilityNames.has(name);
-}
-
-function isDuplicateName(index: number): boolean {
-  const items = app.model.data.customLiabilities ?? [];
-  const name = items[index]?.name;
-  if (!name) return false;
-  return items.some((item, i) => i !== index && item.name === name);
-}
-
-function customNameError(index: number): string | undefined {
-  if (isPredefinedName(index)) return 'Name collides with a predefined liability';
-  if (isDuplicateName(index)) return 'Name must be unique';
-  return undefined;
-}
-
-// ── Export / Import custom liabilities ───────────────────────────────────────
-
-function exportCustomLiabilities(): void {
-  const data = JSON.stringify(app.model.data.customLiabilities ?? [], null, 2);
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = 'custom-liabilities.json';
-  a.click();
-  URL.revokeObjectURL(url);
-}
-
-const importError = ref<string | undefined>(undefined);
-
-const reactiveFileContent = ReactiveFileContent.useGlobal();
-
-// Used as a loading sentinel: getContentJson returns undefined for both "still loading"
-// and "JSON parse failed". Watching bytes alongside data lets us tell the difference —
-// bytes being defined means the file is loaded; data being undefined at that point is a parse error.
-const importedFileBytes = computed(() => {
-  const handle = app.model.outputs.importedFile;
-  if (!handle) return undefined;
-  return reactiveFileContent.getContentBytes(handle.handle).value;
-});
-const importedFileData = computed(() => {
-  const handle = app.model.outputs.importedFile;
-  if (!handle) return undefined;
-  return reactiveFileContent.getContentJson(handle.handle).value;
-});
-
-watch(
-  [importedFileBytes, importedFileData] as const,
-  ([bytes, data]) => {
-    if (bytes === undefined) return;
-    if (app.model.data.importFileHandle === undefined) return;
-
-    importError.value = undefined;
-
-    if (data === undefined) {
-      importError.value = 'Failed to read file — ensure it is valid JSON';
-      app.model.data.importFileHandle = undefined;
-      return;
-    }
-    if (!Array.isArray(data)) {
-      importError.value = 'Invalid format: expected a JSON array';
-      app.model.data.importFileHandle = undefined;
-      return;
-    }
-    const names = (data as CustomLiability[]).map((item) => item.name);
-    if (names.length !== new Set(names).size) {
-      importError.value = 'Duplicate names in imported liabilities';
-      app.model.data.importFileHandle = undefined;
-      return;
-    }
-    const predefinedCollision = names.find((n) => predefinedLiabilityNames.has(n));
-    if (predefinedCollision) {
-      importError.value = `"${predefinedCollision}" collides with a predefined liability name`;
-      app.model.data.importFileHandle = undefined;
-      return;
-    }
-    for (const item of data as CustomLiability[]) {
-      if (!item.name || !item.pattern) {
-        importError.value = 'Each liability must have a name and pattern';
-        app.model.data.importFileHandle = undefined;
-        return;
-      }
-      try {
-        new RegExp(item.pattern);
-      } catch {
-        importError.value = `Invalid regex: "${item.pattern}"`;
-        app.model.data.importFileHandle = undefined;
-        return;
-      }
-      // Regions check applies only in antibody mode.
-      const regions = item.regions ?? [];
-      if (!isPeptide.value && regions.length === 0) {
-        importError.value = `"${item.name}" must have at least one region`;
-        app.model.data.importFileHandle = undefined;
-        return;
-      }
-    }
-    app.model.data.customLiabilities = data as CustomLiability[];
-    app.model.data.importFileHandle = undefined;
-  },
-);
 </script>
 
 <template>
   <PlBlockPage
     v-model:subtitle="app.model.data.customBlockLabel"
-    :subtitle-placeholder="app.model.data.defaultBlockLabel"
-    title="Sequence Liabilities"
+    subtitle-placeholder="Humanness Score"
+    title="Humanness Score"
   >
     <template #append>
       <PlBtnGhost @click.stop="settingsIsShown = true">
@@ -304,154 +73,6 @@ watch(
       @update:model-value="setInput"
     />
 
-    <PlTooltip position="left">
-      <PlCheckbox
-        :model-value="app.model.data.usePredefinedLiabilities ?? true"
-        @update:model-value="(v) => (app.model.data.usePredefinedLiabilities = v)"
-      >
-        Use predefined liabilities
-      </PlCheckbox>
-      <template #tooltip>
-        Curated library of patterns covering deamidation, oxidation, fragmentation, glycosylation, and structural issues. Disable to exclude all built-in checks from scoring.
-      </template>
-    </PlTooltip>
-
-    <!-- Predefined liabilities section: collapsible, collapsed by default -->
-    <PlAccordionSection v-model="predefinedSectionOpen" label="Predefined liabilities">
-      <!-- Predefined list: grayed out when disabled -->
-      <div
-        :style="{
-          opacity: (app.model.data.usePredefinedLiabilities ?? true) ? 1 : 0.4,
-          pointerEvents: (app.model.data.usePredefinedLiabilities ?? true) ? 'auto' : 'none',
-          transition: 'opacity 0.2s',
-        }"
-      >
-        <template v-for="item in predefinedItems" :key="item.value">
-          <PlTooltip v-if="item.value === 'Integrin binding'" position="left">
-            <PlCheckbox
-              :model-value="isLiabilityEnabled(item)"
-              @update:model-value="() => toggleLiability(item)"
-            >
-              {{ item.label }}
-              <span :style="{ fontSize: '11px', opacity: 0.6, marginLeft: '6px' }">{{ fixabilityLabel[item.fixability] }}</span>
-            </PlCheckbox>
-            <template #tooltip>
-              Off by default. RGD/RYD/KGD/NGR/LDV/DGE/GPR motifs trigger off-target cell adhesion via integrin receptors.
-              Enable for in vivo therapeutic candidates where off-target binding is a safety concern.
-              <br /><br />
-              For peptides intentionally targeting integrins, keep this rule disabled.
-            </template>
-          </PlTooltip>
-          <PlCheckbox
-            v-else
-            :model-value="isLiabilityEnabled(item)"
-            @update:model-value="() => toggleLiability(item)"
-          >
-            {{ item.label }}
-            <span :style="{ fontSize: '11px', opacity: 0.6, marginLeft: '6px' }">{{ fixabilityLabel[item.fixability] }}</span>
-          </PlCheckbox>
-        </template>
-      </div>
-    </PlAccordionSection>
-
-    <!-- Warn when no liabilities are active — shown outside the collapsible so always visible -->
-    <PlAlert
-      v-if="(
-        !app.model.data.usePredefinedLiabilities ||
-        predefinedItems.every((item) => !isLiabilityEnabled(item))
-      ) && (app.model.data.customLiabilities?.length ?? 0) === 0"
-      type="warn"
-    >
-      No liabilities active — all sequences will pass without scoring.
-    </PlAlert>
-
-    <PlAccordionSection v-model="advancedSectionOpen" label="Custom liabilities">
-      <!-- Custom liabilities -->
-      <PlElementList
-        v-model:items="customItems"
-        :get-item-key="(_item, index) => index"
-        :is-expanded="(_item, index) => expandedIndices.has(index)"
-        :on-expand="(_item, index) => toggleExpanded(index)"
-        :is-removable="() => true"
-        :on-remove="(_item, index) => removeCustomLiability(index)"
-        :disable-dragging="true"
-      >
-        <template #item-title="{ item }">
-          {{ item.name || 'New custom liability' }}
-        </template>
-        <template #item-content="{ index }">
-          <PlTextField
-            v-model="customItems[index].name"
-            label="Name"
-            placeholder="e.g. Aspartate Isomerization"
-            :error="customNameError(index)"
-          />
-          <PlTextField
-            v-model="customItems[index].pattern"
-            label="Pattern (regex)"
-            placeholder="e.g. N[GS]"
-            :error="customItems[index].pattern && !isPatternValid(customItems[index].pattern) ? 'Invalid regular expression' : undefined"
-          >
-            <template #tooltip>
-              <div>
-                <code>W</code> — single character literal<br>
-                <code>[GS]</code> — character class (G or S)<br>
-                <code>[^P]</code> — negated class (not P)<br>
-                <code>DP</code> — exact dipeptide
-              </div>
-            </template>
-          </PlTextField>
-          <PlDropdown
-            v-model="customItems[index].riskLevel"
-            label="Risk level"
-            :options="riskLevelOptions"
-          />
-          <PlTooltip position="top">
-            <PlDropdown
-              v-model="customItems[index].fixability"
-              label="Fixability"
-              :options="fixabilityOptions"
-            />
-            <template #tooltip>
-              <div>
-                <b>Easy fix:</b> One conservative substitution, minimal binding impact (e.g. Met oxidation, Trp oxidation)<br>
-                <b>Fixable:</b> 1–2 mutations, moderate affinity risk (e.g. Deamidation N[GS], Fragmentation DP)<br>
-                <b>Hard to fix:</b> Significant reengineering required (e.g. Extra Cysteines)
-              </div>
-            </template>
-          </PlTooltip>
-          <PlDropdownMulti
-            v-if="!isPeptide"
-            v-model="customItems[index].regions"
-            label="Regions"
-            :options="regionOptions"
-            :error="(customItems[index].regions?.length ?? 0) === 0 ? 'At least one region must be selected' : undefined"
-          />
-        </template>
-      </PlElementList>
-
-      <PlBtnSecondary icon="add" :style="{ width: '100%' }" @click="addCustomLiability">
-        Add custom liability
-      </PlBtnSecondary>
-      <PlBtnSecondary :style="{ width: '100%' }" @click="exportCustomLiabilities">
-        Export custom liabilities
-      </PlBtnSecondary>
-      <PlTooltip position="top">
-        <PlFileInput
-          v-model="app.model.data.importFileHandle"
-          label="Import custom liabilities"
-          :extensions="['json']"
-          :error="importError"
-          placeholder="Select JSON file"
-        />
-        <template #tooltip>
-          Importing replaces your current custom liabilities. See
-          <a href="https://docs.platforma.bio/guides/antibody-discovery/sequence-liabilities/" target="_blank">documentation</a>
-          for the expected JSON format.
-        </template>
-      </PlTooltip>
-    </PlAccordionSection>
-
     <PlAccordionSection v-model="resourceSectionOpen" label="Resource Allocation">
       <PlNumberField
         v-model="app.model.data.mem"
@@ -461,7 +82,7 @@ watch(
         :maxValue="1012"
       >
         <template #tooltip>
-          Sets the amount of memory available for the liabilities calculation. Increase for large datasets (&gt;10M sequences).
+          Sets the amount of memory available for the humanness score calculation. Increase for large datasets (&gt;10M sequences).
         </template>
       </PlNumberField>
     </PlAccordionSection>

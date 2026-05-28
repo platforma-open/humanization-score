@@ -1,6 +1,6 @@
 {
   "name": "@platforma-open/milaboratories.humanization-score.humanness-calc-script",
-  "version": "6.0.0",
+  "version": "0.2.0",
   "scripts": {
     "build": "pl-pkg build",
     "prepublish": "pl-pkg prepublish",
@@ -12,7 +12,7 @@
     "./dist/**/*"
   ],
   "dependencies": {
-    "@platforma-open/milaboratories.runenv-python-3": "catalog:"
+    "@platforma-open/milaboratories.runenv-python-3.12.10-humanness": "0.2.0"
   },
   "devDependencies": {
     "@platforma-sdk/package-builder": "catalog:"
@@ -24,7 +24,7 @@
           "artifact": {
             "type": "python",
             "registry": "platforma-open",
-            "environment": "@platforma-open/milaboratories.runenv-python-3:3.12.10",
+            "environment": "@platforma-open/milaboratories.runenv-python-3.12.10-humanness:main",
             "dependencies": {
               "toolset": "pip",
               "requirements": "requirements.txt"
@@ -34,24 +34,6 @@
           "cmd": [
             "python",
             "{pkg}/main.py"
-          ]
-        }
-      },
-      "peptide": {
-        "binary": {
-          "artifact": {
-            "type": "python",
-            "registry": "platforma-open",
-            "environment": "@platforma-open/milaboratories.runenv-python-3:3.12.10",
-            "dependencies": {
-              "toolset": "pip",
-              "requirements": "requirements.txt"
-            },
-            "root": "./src"
-          },
-          "cmd": [
-            "python",
-            "{pkg}/peptide_main.py"
           ]
         }
       }

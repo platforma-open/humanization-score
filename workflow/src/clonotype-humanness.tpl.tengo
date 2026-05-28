@@ -1,0 +1,40 @@
+self := import("@platforma-sdk/workflow-tengo:tpl")
+ll := import("@platforma-sdk/workflow-tengo:ll")
+exec := import("@platforma-sdk/workflow-tengo:exec")
+assets := import("@platforma-sdk/workflow-tengo:assets")
+text := import("text")
+json := import("json")
+math := import("math")
+
+humannessCalcSw := assets.importSoftware("@platforma-open/milaboratories.humanization-score.humanness-calc-script:main")
+
+self.defineOutputs("result")
+
+
+self.body(func(args) {
+
+	inputTable := args.table
+
+	baseMemGiB := 16
+	if !is_undefined(args.mem) {
+		baseMemGiB = args.mem
+	}
+
+	// Run the humanness scoring tool on the sequences.
+	humannessCalcCmd := exec.builder().
+		software(humannessCalcSw).
+		mem(string(int(math.max(16, baseMemGiB))) + "GiB").
+		cpu(1).
+		addFile("input.tsv", inputTable).
+		arg("input.tsv").
+		arg("result.tsv").
+		saveFile("result.tsv")
+
+	humannessResult := humannessCalcCmd.run()
+
+	result := humannessResult.getFile("result.tsv")
+
+	return {
+		result: result
+	}
+})

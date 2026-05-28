@@ -21,9 +21,6 @@ catalogs:
     '@milaboratories/ts-configs':
       specifier: 1.2.3
       version: 1.2.3
-    '@platforma-open/milaboratories.runenv-python-3':
-      specifier: ^1.4.9
-      version: 1.4.9
     '@platforma-sdk/block-tools':
       specifier: 2.8.3
       version: 2.8.3
@@ -89,13 +86,13 @@ importers:
 
   block:
     dependencies:
-      '@platforma-open/milaboratories.antibody-sequence-liabilities.model':
+      '@platforma-open/milaboratories.humanization-score.model':
         specifier: workspace:*
         version: link:../model
-      '@platforma-open/milaboratories.antibody-sequence-liabilities.ui':
+      '@platforma-open/milaboratories.humanization-score.ui':
         specifier: workspace:*
         version: link:../ui
-      '@platforma-open/milaboratories.antibody-sequence-liabilities.workflow':
+      '@platforma-open/milaboratories.humanization-score.workflow':
         specifier: workspace:*
         version: link:../workflow
     devDependencies:
@@ -103,11 +100,11 @@ importers:
         specifier: 'catalog:'
         version: 2.8.3
 
-  liabilities-calc-script:
+  humanness-calc-script:
     dependencies:
-      '@platforma-open/milaboratories.runenv-python-3':
-        specifier: 'catalog:'
-        version: 1.4.9
+      '@platforma-open/milaboratories.runenv-python-3.12.10-humanness':
+        specifier: 0.2.0
+        version: 0.2.0
     devDependencies:
       '@platforma-sdk/package-builder':
         specifier: 'catalog:'
@@ -149,7 +146,7 @@ importers:
       '@milaboratories/strings':
         specifier: 'catalog:'
         version: 0.1.2
-      '@platforma-open/milaboratories.antibody-sequence-liabilities.model':
+      '@platforma-open/milaboratories.humanization-score.model':
         specifier: workspace:*
         version: link:../model
       '@platforma-sdk/model':
@@ -186,9 +183,9 @@ importers:
 
   workflow:
     dependencies:
-      '@platforma-open/milaboratories.antibody-sequence-liabilities.liabilities-calc-script':
+      '@platforma-open/milaboratories.humanization-score.humanness-calc-script':
         specifier: workspace:*
-        version: link:../liabilities-calc-script
+        version: link:../humanness-calc-script
       '@platforma-sdk/workflow-tengo':
         specifier: 'catalog:'
         version: 5.24.0
@@ -1077,20 +1074,8 @@ packages:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
 
-  '@platforma-open/milaboratories.runenv-python-3.10.11@1.1.10':
-    resolution: {integrity: sha512-F+lx7vqLMP+j9CJX5qssCqx09cxPQFTJr0peVG2GquzqV8m3fO0bWSu7T7X4J+vGd0Ey7rti43fDrb9viPwLkg==}
-
-  '@platforma-open/milaboratories.runenv-python-3.12.10-atls@1.1.10':
-    resolution: {integrity: sha512-zUf6kn/IDAGaYia4YRUzTjhmfRm5KgsI8MXcBVda1UFdaaO/hr/yMg43MmMlzALbbiUK251MGRrUT6gPoXxfdw==}
-
-  '@platforma-open/milaboratories.runenv-python-3.12.10-sccoda@1.2.9':
-    resolution: {integrity: sha512-EGAf2zWx5TjLoMZWuXWS1odXUx82087Q2CJsmxOjddYkJsLBxW/GRN0jbmImny+lwfZLIm/regZ7LJP57cBPeQ==}
-
-  '@platforma-open/milaboratories.runenv-python-3.12.10@1.2.8':
-    resolution: {integrity: sha512-bjZ+clJRxA5ul3a8TtFVrD6lEpUIOpOO03DtaFiaZMpC1xBwjVvbTzE3EFpiELwjqc+ajaMiDesWjc7MzNKckQ==}
-
-  '@platforma-open/milaboratories.runenv-python-3@1.4.9':
-    resolution: {integrity: sha512-kSqvthwHIChC2rn11QSj2cKQqwaBXnzrHbdt2NjuEcLTYCLlfkFIJbv9mmU4BB+vsECZTz9lWzCO+p8gTnevbA==}
+  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness@0.2.0':
+    resolution: {integrity: sha512-YjKFPXe+caABLre5oZTwAxFHvVCEb5K8rVTEIUBhFYMtfLipVIix0LXi6LxWoOYdhoEeKgIc4zlWFDKs1xaEoQ==}
 
   '@platforma-open/milaboratories.software-ptabler.schema@1.15.9':
     resolution: {integrity: sha512-DtCxrXCaDzjRzEPhlbnJnLfTQatHnGau72D/b8nUtxIgGTNZXG9S3WfRS+VgtaITETbh1x78k4/Qi1o5hUPQHQ==}
@@ -2773,7 +2758,7 @@ packages:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
 
-  get-package-type@0.1.0:
+  get-package-type@0.2.0:
     resolution: {integrity: sha512-pjzuKtY64GYfWizNAJ0fr9VqttZkNiK2iS430LtIHzjBEr6bX8Am2zm4sW4Ro5wjWW5cAlRL1qAMTcXbjNAO2Q==}
     engines: {node: '>=8.0.0'}
 
@@ -3909,7 +3894,7 @@ packages:
     hasBin: true
     peerDependencies:
       '@types/node': ^20.19.0 || >=22.12.0
-      '@vitejs/devtools': ^0.1.0
+      '@vitejs/devtools': ^0.2.0
       esbuild: ^0.27.0 || ^0.28.0
       jiti: '>=1.21.0'
       less: ^4.0.0
@@ -4086,7 +4071,7 @@ packages:
     resolution: {integrity: sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==}
     engines: {node: '>=12'}
 
-  yocto-queue@0.1.0:
+  yocto-queue@0.2.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
@@ -5165,7 +5150,7 @@ snapshots:
       oxfmt: 0.35.0
       oxlint: 1.43.0
       rolldown: 1.0.0-rc.18
-      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.6.3))
+      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.9.3))
       rollup-plugin-copy: 3.5.0
       rollup-plugin-sourcemaps2: 0.5.4(@types/node@24.5.2)(rollup@4.55.1)
       typescript: 5.9.3
@@ -5205,7 +5190,7 @@ snapshots:
       oxfmt: 0.35.0
       oxlint: 1.43.0
       rolldown: 1.0.0-rc.18
-      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.6.3))
+      rolldown-plugin-dts: 0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.9.3))
       rollup-plugin-copy: 3.5.0
       rollup-plugin-sourcemaps2: 0.5.4(@types/node@24.5.2)(rollup@4.55.1)
       typescript: 5.9.3
@@ -5312,7 +5297,7 @@ snapshots:
       cli-spinners: 2.9.2
       debug: 4.4.3(supports-color@8.1.1)
       ejs: 3.1.10
-      get-package-type: 0.1.0
+      get-package-type: 0.2.0
       indent-string: 4.0.0
       is-wsl: 2.2.0
       lilconfig: 3.1.3
@@ -5415,20 +5400,7 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
-  '@platforma-open/milaboratories.runenv-python-3.10.11@1.1.10': {}
-
-  '@platforma-open/milaboratories.runenv-python-3.12.10-atls@1.1.10': {}
-
-  '@platforma-open/milaboratories.runenv-python-3.12.10-sccoda@1.2.9': {}
-
-  '@platforma-open/milaboratories.runenv-python-3.12.10@1.2.8': {}
-
-  '@platforma-open/milaboratories.runenv-python-3@1.4.9':
-    dependencies:
-      '@platforma-open/milaboratories.runenv-python-3.10.11': 1.1.10
-      '@platforma-open/milaboratories.runenv-python-3.12.10': 1.2.8
-      '@platforma-open/milaboratories.runenv-python-3.12.10-atls': 1.1.10
-      '@platforma-open/milaboratories.runenv-python-3.12.10-sccoda': 1.2.9
+  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness@0.2.0': {}
 
   '@platforma-open/milaboratories.software-ptabler.schema@1.15.9':
     dependencies:
@@ -7299,7 +7271,7 @@ snapshots:
 
   get-caller-file@2.0.5: {}
 
-  get-package-type@0.1.0: {}
+  get-package-type@0.2.0: {}
 
   get-stream@4.1.0:
     dependencies:
@@ -7768,7 +7740,7 @@ snapshots:
 
   p-limit@3.1.0:
     dependencies:
-      yocto-queue: 0.1.0
+      yocto-queue: 0.2.0
 
   p-locate@4.1.0:
     dependencies:
@@ -7949,7 +7921,7 @@ snapshots:
 
   reusify@1.0.4: {}
 
-  rolldown-plugin-dts@0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.6.3)):
+  rolldown-plugin-dts@0.23.2(rolldown@1.0.0-rc.18)(typescript@5.9.3)(vue-tsc@3.2.7(typescript@5.9.3)):
     dependencies:
       '@babel/generator': 8.0.0-rc.3
       '@babel/helper-validator-identifier': 8.0.0-rc.3
@@ -8541,7 +8513,7 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 21.1.1
 
-  yocto-queue@0.1.0: {}
+  yocto-queue@0.2.0: {}
 
   zip-stream@6.0.1:
     dependencies:
