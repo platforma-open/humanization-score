@@ -1,6 +1,6 @@
 {
   "name": "@platforma-open/milaboratories.humanization-score.humanness-calc-script",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "scripts": {
     "build": "pl-pkg build",
     "prepublish": "pl-pkg prepublish",
@@ -12,7 +12,7 @@
     "./dist/**/*"
   ],
   "dependencies": {
-    "@platforma-open/milaboratories.runenv-python-3.12.10-humanness": "0.1.0"
+    "@platforma-open/milaboratories.runenv-python-3.12.10-humanness": "0.2.0"
   },
   "devDependencies": {
     "@platforma-sdk/package-builder": "catalog:"

@@ -39,3 +39,6 @@ The score is exposed to Lead Selection as a **default ranking criterion**. By co
 The score is used for *ranking only* — never as a hard filter.
 
 **Interpretation note.** The published evidence is a correlation with population-level ADA (anti-drug-antibody) rates across a panel of therapeutics — not a per-sequence ADA predictor. Treat the score as a **humanness proxy** useful for ranking candidates, not as a direct prediction of an individual molecule's immunogenicity.
+
+
+

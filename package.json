@@ -21,7 +21,7 @@
     "shx": "catalog:"
   },
   "packageManager": "pnpm@9.12.0",
-  "pnpm": {
+  "//pnpm": {
     "overrides": {
       "@platforma-open/milaboratories.runenv-python-3.12.10-humanness": "link:/Users/aleksandr/GIT/MILAB/runenv-python-3/python-3.12.10-humanness/"
     }

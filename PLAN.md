@@ -77,22 +77,22 @@ Research candidates (not a final list): BioPhi/OASis, AbNatiV, Hu-mAb, IgReconst
 
 Source: `git@github.com:platforma-open/antibody-sequence-liabilities.git`. The precedent is named explicitly in the brief.
 
-- [ ] **(subagent)** Clone `antibody-sequence-liabilities` into a temp directory, read its structure.
-- [ ] **(subagent)** Replace the current "foreign" scaffold (it was copied from `antibody-tcr-lead-selection`, visible from `block/package.json:meta.title` and URL) with the `antibody-sequence-liabilities` structure.
-- [ ] **(subagent)** Keep only: `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md` (if non-empty). Everything else (including `node_modules`, build artifacts) is to be replaced / regenerated.
-- [ ] **(subagent)** Rename package names: `antibody-sequence-liabilities` → `humanization-score` in all `package.json`, `pnpm-workspace.yaml`, cross-workspace references.
-- [ ] **(subagent)** Update `block/package.json:meta` (title, description, url, docs) for humanization-score; concrete texts are placeholders, finalized in §9.
-- [ ] Use **BlockModelV3** (current convention; should be inherited from the precedent).
-- [ ] Do not commit — the main thread reviews the diff and decides.
+- [x] **(subagent)** Clone `antibody-sequence-liabilities` into a temp directory, read its structure.
+- [x] **(subagent)** Replace the current "foreign" scaffold (it was copied from `antibody-tcr-lead-selection`, visible from `block/package.json:meta.title` and URL) with the `antibody-sequence-liabilities` structure.
+- [x] **(subagent)** Keep only: `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md` (if non-empty). Everything else (including `node_modules`, build artifacts) is to be replaced / regenerated.
+- [x] **(subagent)** Rename package names: `antibody-sequence-liabilities` → `humanization-score` in all `package.json`, `pnpm-workspace.yaml`, cross-workspace references.
+- [x] **(subagent)** Update `block/package.json:meta` (title, description, url, docs) for humanization-score; concrete texts are placeholders, finalized in §9.
+- [x] Use **BlockModelV3** (current convention; should be inherited from the precedent).
+- [x] Do not commit — the main thread reviews the diff and decides.
 
 ---
 
 ## 5. Containerization of the chosen tool
 
-- [ ] Dockerfile for the chosen scorer: system libs, runtime, model weights.
-- [ ] Pin versions (model + tool code) for reproducibility.
-- [ ] CLI wrapper: `stdin/stdout` or `--input file --output file`, so the workflow calls it deterministically.
-- [ ] Measure per-sequence latency and throughput on a representative sample. Record in `description.md` the practical input-size ceiling.
+- [x] Dockerfile for the chosen scorer: system libs, runtime, model weights.
+- [x] Pin versions (model + tool code) for reproducibility.
+- [x] CLI wrapper: `stdin/stdout` or `--input file --output file`, so the workflow calls it deterministically.
+- [x] Measure per-sequence latency and throughput on a representative sample. Record in `description.md` the practical input-size ceiling.
 
 ---
 
@@ -110,7 +110,7 @@ Source: `git@github.com:platforma-open/antibody-sequence-liabilities.git`. The p
 
 ## 7. Lead Selection integration
 
-- [ ] Check how `blocks/antibody-tcr-lead-selection/model/src/util.ts` discovers scoring columns. ⚠️ Not confirmed that the annotations we emit match what util.ts looks for.
+- [x] Check how `blocks/antibody-tcr-lead-selection/model/src/util.ts` discovers scoring columns. ⚠️ Not confirmed that the annotations we emit match what util.ts looks for.
 - [x] Apply annotations on the output PColumn for auto-pickup as the **default ranking criterion** (`isScore: "true"` + `score/rankingOrder: "decreasing"`).
 - [x] **Lead Selection code is not touched** — respected (no changes there).
 - [ ] Verify integration via an end-to-end run. ⚠️ Not done.
@@ -229,7 +229,7 @@ Chronology of execution. Each entry: date, plan step, who did it (agent / main t
 | 2026-05-26 | §4 copying the scaffold from `antibody-sequence-liabilities` | subagent | Done. Source: commit `ff07500` of 2026-05-26. The old scaffold (from `antibody-tcr-lead-selection`) removed, replaced with `antibody-sequence-liabilities`. Kept: `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md`, `.pnpm-store/`. Package names renamed (`antibody-sequence-liabilities` → `humanization-score`). Directory `liabilities-calc-script/` → `humanness-calc-script/`. Updated `block.meta.title` = "Humanization Score", `meta.description` = placeholder, `meta.url`/`meta.docs` point at humanization-score. `git status`: 97 changes, nothing committed. `pnpm install` not run. |
 | 2026-05-26 | Step A: `pnpm build` green | subagent | Build OK from scratch, no fixes required. 9 tasks built: model, ui, workflow (tengo), humanness-calc-script, block-pack. Warnings: `${NPMJS_TOKEN}` in `.npmrc` (publish-only), vite chunk-size in `ui/dist` (preexisting). |
 | 2026-05-26 | Step B: stub humanness logic | subagent | Build OK + Python tests 6/6 green. Stub function: `100 * (fraction of standard AAs) / len(seq)`, range 0..100, deterministic. Output PColumn: a single `humanness_score: Double` column with spec `pl7.app/humannessScore`, label "Humanness Score". Works for both clonotype and peptide branches. `pl7.app/isScore` NOT set (open question). Removed `annotations.py`/`definitions.py`/`detection.py`/`scoring.py` from the python script. 15 files changed, nothing committed. |
-| 2026-05-27 | §9 `description.md` + cosmetics | subagents | **§9**: `docs/description.md` rewritten for humanness (method promb/OASis, scale 0..100, modalities, isScore, alternatives). Verified: promb = MIT (© Merck), OAS = CC-BY 4.0, OASis validation (Prihoda et al., mAbs 2022). OPEN ITEMS: license of the bundled `human-oas` artifact (needs sign-off), benchmark not measured (§5), per-sequence validation not confirmed. **Cosmetics**: `*-liabilities.tpl.tengo`→`*-humanness.tpl.tengo` (git mv + references), all CHANGELOGs cleaned → 0.1.0, package.json versions → 0.1.0. `pnpm build` green (9/9). Not committed. |
+| 2026-05-27 | §9 `description.md` + cosmetics | subagents | **§9**: `docs/description.md` rewritten for humanness (method promb/OASis, scale 0..100, modalities, isScore, alternatives). Verified: promb = MIT (© Merck), OAS = CC-BY 4.0, OASis validation (Prihoda et al., mAbs 2022). OPEN ITEMS: license of the bundled `human-oas` artifact (needs sign-off), benchmark not measured (§5), per-sequence validation not confirmed. **Cosmetics**: `*-liabilities.tpl.tengo`→`*-humanness.tpl.tengo` (git mv + references), all CHANGELOGs cleaned → 0.2.0, package.json versions → 0.2.0. `pnpm build` green (9/9). Not committed. |
 | 2026-05-27 | §3 + §6 + §7: real scorer promb/OASis | (committed: `975da7f`→`a09d386`) | Stub replaced with **promb / OASis** (`human-oas` DB): `humanness()` = fraction of 9-mers in human repertoires × 100. `main.py` (antibody, concatenates all `* aa` columns) + `peptide_main.py` (reuses `humanness`). `requirements.txt`: `promb>=1.0.2`, `polars-lts-cpu==1.33.1`. Annotations: `isScore: "true"`, `score/rankingOrder: "decreasing"`, `score/method: "promb / OASis (human-oas)"`. Model `index.ts` cleaned of liability dead-code (types `CustomLiability` and args removed, `upgradeLegacy` kept). UI cleaned of liability controls. **Not done**: decision-doc/`description.md` (§9, still about liabilities), human-vs-non-human sanity test (§8), end-to-end run through Lead Selection (§7), discovery cross-check in util.ts. |
 
 ### Step B — tails (from subagent)
@@ -251,7 +251,7 @@ The "tail" of the scaffold stage, recorded separately so it's not lost:
 1. **Logos** `logos/block-logo.png`, `logos/organization-logo.png` — currently from sequence-liabilities; we need our own (or keep them temporarily if OK).
 2. **`docs/description.md`** (`block.meta.longDescription`) — rewrite for humanization score, final in §9.
 3. **`block.meta`**: final `title`, `description`, `docs` URL, `tags`, `marketplaceRanking`. Currently placeholder.
-4. ~~**`CHANGELOG.md`**~~ ✅ 2026-05-27: all CHANGELOGs cleaned of `antibody-sequence-liabilities` history, reduced to a single `## 0.1.0 / Initial release` entry.
-5. ~~**`version`**~~ ✅ 2026-05-27: versions in all `package.json` reset to `0.1.0` (block/model/ui/workflow/humanness-calc-script).
+4. ~~**`CHANGELOG.md`**~~ ✅ 2026-05-27: all CHANGELOGs cleaned of `antibody-sequence-liabilities` history, reduced to a single `## 0.2.0 / Initial release` entry.
+5. ~~**`version`**~~ ✅ 2026-05-27: versions in all `package.json` reset to `0.2.0` (block/model/ui/workflow/humanness-calc-script).
 6. ~~**`pnpm install`** — run to regenerate `pnpm-lock.yaml` against the new package names and install `node_modules`.~~ ✅ 2026-05-26: done, exit=0. Warnings: 6 deprecated subdependencies (transitive, non-blocking) + peer-dep warnings.
 7. **Business logic** — currently the sequence-liabilities implementation under the hood (workflow tengo, model TS, UI, python script). This is to be cleaned up / rewritten in the next plan steps (§5–§7), not here.

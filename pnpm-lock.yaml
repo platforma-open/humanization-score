@@ -64,9 +64,6 @@ catalogs:
       specifier: 3.5.24
       version: 3.5.24
 
-overrides:
-  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness': link:/Users/aleksandr/GIT/MILAB/runenv-python-3/python-3.12.10-humanness/
-
 importers:
 
   .:
@@ -106,8 +103,8 @@ importers:
   humanness-calc-script:
     dependencies:
       '@platforma-open/milaboratories.runenv-python-3.12.10-humanness':
-        specifier: link:/Users/aleksandr/GIT/MILAB/runenv-python-3/python-3.12.10-humanness/
-        version: link:../../runenv-python-3/python-3.12.10-humanness
+        specifier: 0.2.0
+        version: 0.2.0
     devDependencies:
       '@platforma-sdk/package-builder':
         specifier: 'catalog:'
@@ -1076,6 +1073,9 @@ packages:
   '@pkgjs/parseargs@0.11.0':
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
+
+  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness@0.2.0':
+    resolution: {integrity: sha512-YjKFPXe+caABLre5oZTwAxFHvVCEb5K8rVTEIUBhFYMtfLipVIix0LXi6LxWoOYdhoEeKgIc4zlWFDKs1xaEoQ==}
 
   '@platforma-open/milaboratories.software-ptabler.schema@1.15.9':
     resolution: {integrity: sha512-DtCxrXCaDzjRzEPhlbnJnLfTQatHnGau72D/b8nUtxIgGTNZXG9S3WfRS+VgtaITETbh1x78k4/Qi1o5hUPQHQ==}
@@ -2758,7 +2758,7 @@ packages:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
 
-  get-package-type@0.1.0:
+  get-package-type@0.2.0:
     resolution: {integrity: sha512-pjzuKtY64GYfWizNAJ0fr9VqttZkNiK2iS430LtIHzjBEr6bX8Am2zm4sW4Ro5wjWW5cAlRL1qAMTcXbjNAO2Q==}
     engines: {node: '>=8.0.0'}
 
@@ -3894,7 +3894,7 @@ packages:
     hasBin: true
     peerDependencies:
       '@types/node': ^20.19.0 || >=22.12.0
-      '@vitejs/devtools': ^0.1.0
+      '@vitejs/devtools': ^0.2.0
       esbuild: ^0.27.0 || ^0.28.0
       jiti: '>=1.21.0'
       less: ^4.0.0
@@ -4071,7 +4071,7 @@ packages:
     resolution: {integrity: sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==}
     engines: {node: '>=12'}
 
-  yocto-queue@0.1.0:
+  yocto-queue@0.2.0:
     resolution: {integrity: sha512-rVksvsnNCdJ/ohGc6xgPwyN8eheCxsiLM8mxuE/t/mOVqJewPuO1miLpTHQiRgTKCLexL4MeAFVagts7HmNZ2Q==}
     engines: {node: '>=10'}
 
@@ -5297,7 +5297,7 @@ snapshots:
       cli-spinners: 2.9.2
       debug: 4.4.3(supports-color@8.1.1)
       ejs: 3.1.10
-      get-package-type: 0.1.0
+      get-package-type: 0.2.0
       indent-string: 4.0.0
       is-wsl: 2.2.0
       lilconfig: 3.1.3
@@ -5399,6 +5399,8 @@ snapshots:
 
   '@pkgjs/parseargs@0.11.0':
     optional: true
+
+  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness@0.2.0': {}
 
   '@platforma-open/milaboratories.software-ptabler.schema@1.15.9':
     dependencies:
@@ -7269,7 +7271,7 @@ snapshots:
 
   get-caller-file@2.0.5: {}
 
-  get-package-type@0.1.0: {}
+  get-package-type@0.2.0: {}
 
   get-stream@4.1.0:
     dependencies:
@@ -7738,7 +7740,7 @@ snapshots:
 
   p-limit@3.1.0:
     dependencies:
-      yocto-queue: 0.1.0
+      yocto-queue: 0.2.0
 
   p-locate@4.1.0:
     dependencies:
@@ -8511,7 +8513,7 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 21.1.1
 
-  yocto-queue@0.1.0: {}
+  yocto-queue@0.2.0: {}
 
   zip-stream@6.0.1:
     dependencies:
