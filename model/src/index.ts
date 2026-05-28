@@ -3,10 +3,11 @@ import type {
   PlRef,
 } from '@platforma-sdk/model';
 import {
+  ArrayColumnProvider,
   BlockModelV3,
   DataModelBuilder,
   createPlDataTableStateV2,
-  createPlDataTableV2,
+  createPlDataTableV3,
 } from '@platforma-sdk/model';
 export type * from '@milaboratories/helpers';
 
@@ -71,11 +72,12 @@ export const platforma = BlockModelV3.create(dataModel)
     if (pCols === undefined) {
       return undefined;
     }
-    return createPlDataTableV2(
-      ctx,
-      pCols,
-      ctx.data.tableState,
-    );
+    return createPlDataTableV3(ctx, {
+      tableState: ctx.data.tableState,
+      columns: new ArrayColumnProvider(pCols)
+        .getAllColumns()
+        .map((column) => ({ column, isPrimary: true })),
+    });
   })
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
