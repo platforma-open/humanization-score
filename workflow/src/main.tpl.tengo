@@ -13,8 +13,6 @@ math := import("math")
 
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
 processTpl := assets.importTemplate(":clonotype-process")
-peptideHumannessTpl := assets.importTemplate(":peptide-humanness")
-peptideProcessTpl := assets.importTemplate(":peptide-process")
 
 // Prepare phase of the workflow - collects and sets up required data
 wf.prepare(func(args) {
@@ -54,19 +52,6 @@ wf.prepare(func(args) {
 		}
 	}, "additionalSequences")
 
-	// aa peptide sequence
-	bundleBuilder.addMulti({
-		axes: [{ anchor: "main", idx: 1 }],
-		name: "pl7.app/sequence",
-		annotations: {
-			"pl7.app/isAssemblingFeature": "true"
-		},
-		domain: {
-			"pl7.app/feature": "peptide",
-			"pl7.app/alphabet": "aminoacid"
-		}
-	}, "peptideSequences")
-
 		return {
 			columns: bundleBuilder.build()
 		}
@@ -85,50 +70,6 @@ wf.body(func(args) {
 		baseMemGiB = args.mem
 	}
 
-	// ───────────────────────────────────────────────────────────────────────
-	// Peptide branch
-	// ───────────────────────────────────────────────────────────────────────
-	if datasetSpec.axesSpec[1].name == "pl7.app/variantKey" {
-		peptideSeqs := columnsWithSequences.getColumns("peptideSequences")
-		if len(peptideSeqs) == 0 {
-			ll.panic("No peptide aa sequence found on variantKey axis. Expected pl7.app/sequence with domain.pl7.app/feature: peptide and pl7.app/alphabet: aminoacid.")
-		}
-		peptideSeq := peptideSeqs[0]
-
-		seqTableBuilder := pFrames.tsvFileBuilder()
-		seqTableBuilder.setAxisHeader(datasetSpec.axesSpec[1].name, "variantKey")
-		seqTableBuilder.add(columnsWithSequences.getColumn(peptideSeq.key), {header: "sequence aa"})
-		seqTableBuilder.mem(string(int(math.max(8, baseMemGiB / 4))) + "GiB")
-		seqTableBuilder.cpu(1)
-		seqTable := seqTableBuilder.build()
-
-		liabilitiesResultCalc := render.create(peptideHumannessTpl, {
-			table: seqTable,
-			mem: args.mem
-		})
-		liabilitiesResult := liabilitiesResultCalc.output("result", 24 * 60 * 60 * 1000)
-
-		peptideProcess := render.create(peptideProcessTpl, {
-			liabilitiesTable: liabilitiesResult,
-			blockId: blockId,
-			customBlockLabel: args.customBlockLabel,
-			datasetSpec: datasetSpec,
-			mem: args.mem
-		})
-
-		return {
-			outputs: {
-				outputLiabilities: peptideProcess.output("outputLiabilities", 24 * 60 * 60 * 1000)
-			},
-			exports: {
-				exportPframe: peptideProcess.output("exportPframe", 24 * 60 * 60 * 1000)
-			}
-		}
-	}
-
-	// ───────────────────────────────────────────────────────────────────────
-	// Antibody / VDJ branch
-	// ───────────────────────────────────────────────────────────────────────
 	sequences := columnsWithSequences.getColumns("sequences")
 	annotations := columnsWithSequences.getColumns("annotations")
 	additionalSequences := columnsWithSequences.getColumns("additionalSequences")

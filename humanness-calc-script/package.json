@@ -36,24 +36,6 @@
             "{pkg}/main.py"
           ]
         }
-      },
-      "peptide": {
-        "binary": {
-          "artifact": {
-            "type": "python",
-            "registry": "platforma-open",
-            "environment": "@platforma-open/milaboratories.runenv-python-3.12.10-humanness:main",
-            "dependencies": {
-              "toolset": "pip",
-              "requirements": "requirements.txt"
-            },
-            "root": "./src"
-          },
-          "cmd": [
-            "python",
-            "{pkg}/peptide_main.py"
-          ]
-        }
       }
     }
   }

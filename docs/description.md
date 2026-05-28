@@ -1,8 +1,8 @@
 # Overview
 
-Scores antibody and peptide amino-acid sequences for **humanness** — how human-like a sequence looks relative to natural human antibody repertoires. The score is intended as a ranking criterion in Lead Selection: among otherwise comparable candidates, more human-like sequences are generally preferred because they tend to carry lower immunogenicity risk.
+Scores antibody amino-acid sequences for **humanness** — how human-like a sequence looks relative to natural human antibody repertoires. The score is intended as a ranking criterion in Lead Selection: among otherwise comparable candidates, more human-like sequences are generally preferred because they tend to carry lower immunogenicity risk.
 
-The block emits a single output column, **Humanness Score** (`humanness_score`), for both supported modalities. The value is a float in **[0, 100]**, where **higher = more human**. The column is published with the spec name `pl7.app/humannessScore` (valueType `Double`) and is annotated as a score so downstream blocks can pick it up automatically.
+The block emits a single output column, **Humanness Score** (`humanness_score`). The value is a float in **[0, 100]**, where **higher = more human**. The column is published with the spec name `pl7.app/humannessScore` (valueType `Double`) and is annotated as a score so downstream blocks can pick it up automatically.
 
 # Method
 
@@ -20,10 +20,11 @@ The block emits a single output column, **Humanness Score** (`humanness_score`),
 
 # Modality coverage
 
-The metric is alignment-free and works uniformly across modalities without per-modality model configuration:
+The metric is alignment-free and works uniformly across antibody formats without per-format model configuration:
 
 - **Antibody** — VHH, mAb, scFv. The block runs in clonotype mode: for each clonotype, every `* aa` sequence column is concatenated into a single string and scored as one number (`humanness-calc-script/src/main.py`). A single per-clonotype score is produced; per-chain (heavy/light) breakdown is not currently emitted.
-- **Peptide** — scored from the `sequence aa` column (`humanness-calc-script/src/peptide_main.py`, reusing the same scorer).
+
+Peptide input is intentionally **out of scope** — humanness scoring is not meaningful for non-antibody peptides.
 
 # License
 

@@ -1,212 +1,257 @@
 # Humanization Score Block — Engineering Plan
 
-Инженерный план реализации блока `humanization-score`. Биология сведена к минимуму: с точки зрения кода блок — это `f(amino_acid_sequence: string) → float`, обёрнутый в стандартный пайплайн-юнит платформы.
+Engineering plan for the `humanization-score` block. Biology is reduced to a minimum: from a code perspective, the block is `f(amino_acid_sequence: string) → float` wrapped into a standard platform pipeline unit.
 
-Источник требований: `Antibody Humanization Score.md`.
+Source of requirements: `Antibody Humanization Score.md`.
 
 ## Workflow
 
-- **Все задачи выполняются через сабагентов** (Agent tool). Главный поток оркеструет и проверяет результат, сами действия (клон репо, копирование файлов, правки кода, сборка) делегируются.
-- После выполнения каждого шага плана его статус и краткий отчёт фиксируются в этом файле в разделе **Execution log** в конце.
-- Каждой задаче в плане соответствует один сабагент-вызов; если задача крупная — несколько последовательных или параллельных.
+- **All tasks are executed via subagents** (Agent tool). The main thread orchestrates and verifies results; the actual work (repo clone, file copying, code edits, builds) is delegated.
+- After each plan step, its status and a brief report are recorded in this file under the **Execution log** section at the end.
+- Each task in the plan corresponds to one subagent invocation; if a task is large — several sequential or parallel ones.
 
 ---
 
-## 0. Pre-flight (до начала кода)
+## 0. Pre-flight (before any code)
 
-- [ ] Уточнить, где живёт блок: в этом репо или в монорепе платформы рядом с `blocks/antibody-sequence-liabilities/`.
-- [ ] Получить доступ к репо-прецедентам (см. §2). Без них реализовать корректные PColumn-аннотации нельзя.
-- [ ] Получить тестовые датасеты для трёх модальностей: VHH, mAb, scFv.
-- [ ] Получить «эталонную» панель из заведомо человеческих и заведомо не-человеческих последовательностей для acceptance-теста (§8).
+- [ ] Clarify where the block lives: in this repo or in the platform monorepo next to `blocks/antibody-sequence-liabilities/`.
+- [ ] Obtain access to the precedent repos (see §2). Without them correct PColumn annotations cannot be implemented.
+- [ ] Obtain test datasets for the three modalities: VHH, mAb, scFv.
+- [ ] Obtain a "reference" panel of known-human and known-non-human sequences for the acceptance test (§8).
 
 ---
 
-## 1. Контракт блока
+## 1. Block contract
 
-### Вход
-- Существующая PColumn с аминокислотными последовательностями антител (та же форма, что у `antibody-sequence-liabilities`).
-- Поддерживаемые модальности: **VHH, mAb, scFv**.
+### Input
+- Existing PColumn with antibody amino-acid sequences (same shape as in `antibody-sequence-liabilities`).
+- Supported modalities: **VHH, mAb, scFv**.
 
-### Выход
-- Одна PColumn на каждую скорённую цепь (heavy / light / обе — зависит от модальности).
+### Output
+- One PColumn per scored chain (heavy / light / both — depending on modality).
 - `value type: Float`.
-- Шкала: больше = более «человечно». Если выбранный инструмент даёт обратное — инвертируем.
-- Рекомендуемая нормализация: 0–100 (или 0–1), чтобы шкала была независима от метода (метод может смениться в v2).
-- Аннотация `pl7.app/isScore: "true"` — ставится **только** если у выбранного метода есть опубликованная валидация против иммуногенности. Решение — за имплементатором, фиксируется в `description.md`. ⚠️ **Текущее состояние**: `isScore: "true"` уже выставлен в обоих tengo-шаблонах (для участия в Lead Selection), но обоснование в `description.md` ещё не зафиксировано — open question формально не закрыт.
+- Scale: higher = more "human". If the chosen tool gives the inverse — we invert it.
+- Recommended normalization: 0–100 (or 0–1), so the scale is method-independent (the method may change in v2).
+- The `pl7.app/isScore: "true"` annotation — set **only** if the chosen method has published validation against immunogenicity. The decision is on the implementer and is recorded in `description.md`. ⚠️ **Current state**: `isScore: "true"` is already set in both tengo templates (for Lead Selection participation), but the rationale in `description.md` has not yet been recorded — the open question is not formally closed.
 
-### Что блок НЕ делает (out of scope)
-- Per-residue скор (какие позиции тянут скор вниз).
-- Предложения мутаций (back-mutation к человеческой germline).
-- Параллельный скоринг несколькими методами.
-- Hard-filter в Lead Selection (только ranking).
-
----
-
-## 2. Файлы-прецеденты, которые нужно прочитать ПЕРЕД кодом
-
-| Что | Где | Зачем |
-|-----|-----|-------|
-| Структура блока-скоринга | `blocks/antibody-sequence-liabilities/` | Копируем как скелет |
-| Конвенции PColumn (isScore, defaultCutoff и т.п.) | `docs/text/work/projects/sequence-liability-fixability-scoring/pcolumn-spec.md` | Чтобы Lead Selection нашёл колонку |
-| Discovery колонок в Lead Selection | `blocks/antibody-tcr-lead-selection/model/src/util.ts` | Понять, какие аннотации блок ищет |
-
-Эти файлы — единственный надёжный источник правды по формату. Без их чтения дальше не двигаться.
+### What the block does NOT do (out of scope)
+- Per-residue score (which positions pull the score down).
+- Mutation suggestions (back-mutation to a human germline).
+- Parallel scoring with multiple methods.
+- Hard-filter in Lead Selection (ranking only).
 
 ---
 
-## 3. Выбор движка скоринга
+## 2. Precedent files to read BEFORE coding
 
-Это самостоятельная инженерная подзадача. Чисто технические критерии:
+| What | Where | Why |
+|------|-------|-----|
+| Scoring block structure | `blocks/antibody-sequence-liabilities/` | Copy as a skeleton |
+| PColumn conventions (isScore, defaultCutoff, etc.) | `docs/text/work/projects/sequence-liability-fixability-scoring/pcolumn-spec.md` | So Lead Selection finds the column |
+| Column discovery in Lead Selection | `blocks/antibody-tcr-lead-selection/model/src/util.ts` | Understand which annotations the block looks for |
 
-- **Лицензия**: open source, permissive (требуется для редистрибуции платформы).
-- **Footprint**: размер контейнера, веса модели, рантайм-зависимости (Python/PyTorch/прочее).
-- **Производительность**: per-sequence cost → определяет, влезает ли полный репертуар или только pre-filtered панель.
-- **Модальности**: должен покрывать VHH, mAb, scFv (либо обвязка блока сводит вход к поддерживаемому формату).
-- **Валидация**: наличие опубликованной валидации → влияет на `isScore`.
-- **Выход**: одно число; method-specific шкалу ремасштабируем.
-
-Кандидаты для рисёрча (не финальный список): BioPhi/OASis, AbNatiV, Hu-mAb, IgReconstruct.
-
-**Артефакт этого этапа**: короткий decision-doc внутри `description.md` — что выбрано, какие альтернативы рассмотрены, почему.
-
-> ✅ **Движок выбран**: `promb` (пакет `promb>=1.0.2`), БД `human-oas` — OASis-style скор: доля 9-меров последовательности, встречающихся в человеческих репертуарах, ремасштаб 0..100, больше = человечнее. ⚠️ decision-doc в `description.md` ещё НЕ написан (см. §9), альтернативы формально не задокументированы.
+These files are the only reliable source of truth on the format. Don't move on without reading them.
 
 ---
 
-## 4. Скаффолд блока
+## 3. Scoring engine selection
 
-Источник: `git@github.com:platforma-open/antibody-sequence-liabilities.git`. Прецедент явно назван в брифе.
+A standalone engineering subtask. Purely technical criteria:
 
-- [ ] **(сабагент)** Склонировать `antibody-sequence-liabilities` во временную директорию, прочитать структуру.
-- [ ] **(сабагент)** Заменить текущий «чужой» скафолд (он скопирован с `antibody-tcr-lead-selection`, видно по `block/package.json:meta.title` и URL) на структуру `antibody-sequence-liabilities`.
-- [ ] **(сабагент)** Сохранить только: `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md` (если он не пустой). Всё остальное (включая `node_modules`, build-артефакты) подлежит замене / регенерации.
-- [ ] **(сабагент)** Переименовать имена пакетов: `antibody-sequence-liabilities` → `humanization-score` во всех `package.json`, `pnpm-workspace.yaml`, ссылках между воркспейсами.
-- [ ] **(сабагент)** Обновить `block/package.json:meta` (title, description, url, docs) под humanization-score; конкретные тексты — placeholder, финализируются в §9.
-- [ ] Использовать **BlockModelV3** (текущая конвенция; должно унаследоваться от прецедента).
-- [ ] Не коммитить — главный поток смотрит diff и решает.
+- **License**: open source, permissive (required for platform redistribution).
+- **Footprint**: container size, model weights, runtime dependencies (Python/PyTorch/etc.).
+- **Performance**: per-sequence cost → determines whether the full repertoire fits or only a pre-filtered panel.
+- **Modalities**: must cover VHH, mAb, scFv (or the block's wrapper reduces the input to a supported format).
+- **Validation**: existence of published validation → affects `isScore`.
+- **Output**: a single number; method-specific scale is rescaled.
 
----
+Research candidates (not a final list): BioPhi/OASis, AbNatiV, Hu-mAb, IgReconstruct.
 
-## 5. Контейнеризация выбранного инструмента
+**Artifact of this stage**: a short decision-doc inside `description.md` — what was chosen, which alternatives were considered, why.
 
-- [ ] Dockerfile для выбранного скорера: системные либы, рантайм, веса модели.
-- [ ] Зафиксировать версии (модель + код инструмента) для воспроизводимости.
-- [ ] CLI-обёртка: `stdin/stdout` или `--input file --output file`, чтобы workflow дёргал детерминированно.
-- [ ] Замерить per-sequence latency и throughput на репрезентативной выборке. Записать в `description.md` потолок практически разумного входа.
+> ✅ **Engine chosen**: `promb` (package `promb>=1.0.2`), `human-oas` DB — OASis-style score: fraction of 9-mers from the sequence found in human repertoires, rescaled to 0..100, higher = more human. ⚠️ The decision-doc in `description.md` is not yet written (see §9); alternatives are not formally documented.
 
 ---
 
-## 6. Workflow (оркестрация)
+## 4. Block scaffold
 
-- [x] Чтение входной PColumn с последовательностями.
-- [x] Итерация по строкам (или батчинг, если инструмент поддерживает) → вызов скорера (`humanness-calc-script`, `main.py` / `peptide_main.py`).
-- [~] Сбор результата → запись output PColumn(ов):
-  - ⚠️ Сейчас **одна** колонка `humanness_score` на клонотип: все колонки `* aa` конкатенируются и скорятся одним числом. Раздельных heavy/light колонок НЕТ — пересмотреть, нужна ли per-chain детализация.
-  - Для VHH/peptide одна цепь — покрыто.
-- [x] Нормализация шкалы 0..100 (см. §1).
-- [x] Навешивание аннотаций по `pcolumn-spec.md` (`pl7.app/humannessScore`, `isScore: "true"`, `rankingOrder: "decreasing"`, `score/method`).
+Source: `git@github.com:platforma-open/antibody-sequence-liabilities.git`. The precedent is named explicitly in the brief.
 
----
-
-## 7. Интеграция с Lead Selection
-
-- [ ] Проверить, как `blocks/antibody-tcr-lead-selection/model/src/util.ts` обнаруживает скоринговые колонки. ⚠️ НЕ подтверждено, что выставленные аннотации совпадают с тем, что ищет util.ts.
-- [x] Навесить на выходную PColumn аннотации для автоподхвата как **default ranking criterion** (`isScore: "true"` + `score/rankingOrder: "decreasing"`).
-- [x] **Код Lead Selection не трогаем** — соблюдено (изменений в нём нет).
-- [ ] Проверить интеграцию сквозным прогоном. ⚠️ НЕ сделано.
+- [ ] **(subagent)** Clone `antibody-sequence-liabilities` into a temp directory, read its structure.
+- [ ] **(subagent)** Replace the current "foreign" scaffold (it was copied from `antibody-tcr-lead-selection`, visible from `block/package.json:meta.title` and URL) with the `antibody-sequence-liabilities` structure.
+- [ ] **(subagent)** Keep only: `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md` (if non-empty). Everything else (including `node_modules`, build artifacts) is to be replaced / regenerated.
+- [ ] **(subagent)** Rename package names: `antibody-sequence-liabilities` → `humanization-score` in all `package.json`, `pnpm-workspace.yaml`, cross-workspace references.
+- [ ] **(subagent)** Update `block/package.json:meta` (title, description, url, docs) for humanization-score; concrete texts are placeholders, finalized in §9.
+- [ ] Use **BlockModelV3** (current convention; should be inherited from the precedent).
+- [ ] Do not commit — the main thread reviews the diff and decides.
 
 ---
 
-## 8. Тесты и acceptance
+## 5. Containerization of the chosen tool
 
-- [ ] `pnpm build` зелёный.
-- [ ] Integration tests блока проходят.
-- [ ] Прогон на сэмпле для каждой модальности: VHH, mAb, scFv.
-- [ ] **Sanity-тест**: на смешанной панели «известно человеческие» vs «известно не-человеческие» → средний скор у человеческих заметно выше. Это финальный acceptance, который доказывает, что обвязка не сломала смысл скора.
-- [ ] Прогон через Lead Selection: колонка появилась, ранжирование работает.
+- [ ] Dockerfile for the chosen scorer: system libs, runtime, model weights.
+- [ ] Pin versions (model + tool code) for reproducibility.
+- [ ] CLI wrapper: `stdin/stdout` or `--input file --output file`, so the workflow calls it deterministically.
+- [ ] Measure per-sequence latency and throughput on a representative sample. Record in `description.md` the practical input-size ceiling.
 
-Маппинг на Success Criteria брифа:
+---
 
-| Критерий из брифа | Покрывается шагом |
+## 6. Workflow (orchestration)
+
+- [x] Read the input PColumn with sequences.
+- [x] Iterate over rows (or batch, if the tool supports it) → call the scorer (`humanness-calc-script`, `main.py` / `peptide_main.py`).
+- [~] Collect results → write output PColumn(s):
+  - ⚠️ Currently **one** `humanness_score` column per clonotype: all `* aa` columns are concatenated and scored as a single number. There are NO separate heavy/light columns — reconsider whether per-chain detail is needed.
+  - For VHH a single chain — covered.
+- [x] Scale normalization 0..100 (see §1).
+- [x] Apply annotations per `pcolumn-spec.md` (`pl7.app/humannessScore`, `isScore: "true"`, `rankingOrder: "decreasing"`, `score/method`).
+
+---
+
+## 7. Lead Selection integration
+
+- [ ] Check how `blocks/antibody-tcr-lead-selection/model/src/util.ts` discovers scoring columns. ⚠️ Not confirmed that the annotations we emit match what util.ts looks for.
+- [x] Apply annotations on the output PColumn for auto-pickup as the **default ranking criterion** (`isScore: "true"` + `score/rankingOrder: "decreasing"`).
+- [x] **Lead Selection code is not touched** — respected (no changes there).
+- [ ] Verify integration via an end-to-end run. ⚠️ Not done.
+
+---
+
+## 8. Tests and acceptance
+
+- [ ] `pnpm build` green.
+- [ ] Block integration tests pass.
+- [ ] Run on a sample for each modality: VHH, mAb, scFv.
+- [ ] **Sanity test**: on a mixed panel of "known-human" vs "known-non-human" → the average score on humans is noticeably higher. This is the final acceptance proving the wrapper hasn't broken the score's meaning.
+- [ ] Run via Lead Selection: the column appears, ranking works.
+
+Mapping to the brief's Success Criteria:
+
+| Criterion from the brief | Covered by step |
 |---|---|
 | Block builds, installs, runs | §4, §5, §8 |
 | Produces humanness score PColumn per chain | §6 |
 | Wired into Lead Selection as default ranking criterion | §7 |
 | Runs on VHH, mAb, scFv | §6, §8 |
-| Human > non-human on mixed panel | §8 (sanity-тест) |
+| Human > non-human on mixed panel | §8 (sanity test) |
 | `description.md` documents method, license, scale | §3, §9 |
 | `pnpm build` + integration tests | §8 |
 
 ---
 
-## 9. Документация
+## 9. Documentation
 
-`description.md` в блоке должен содержать:
+`description.md` in the block must contain:
 
-- Выбранный метод и его источник/версию.
-- Лицензию.
-- Шкалу скора (диапазон, ориентация: больше = лучше).
-- Покрытие модальностей.
-- Бенчмарк производительности → практический потолок размера входа.
-- Решение по `isScore` и обоснование (есть валидация / нет валидации).
-- Рассмотренные альтернативы (коротко, почему отвергнуты).
+- The chosen method and its source/version.
+- License.
+- Score scale (range, orientation: higher = better).
+- Modality coverage.
+- Performance benchmark → practical input-size ceiling.
+- The `isScore` decision and its rationale (validation present / absent).
+- Alternatives considered (briefly, why rejected).
 
 ---
 
-## 10. Порядок выполнения
+## 10. Execution order
 
-1. §0 — pre-flight, разблокировать доступы.
-2. §2 — прочитать три файла-прецедента.
-3. §3 — выбрать движок скоринга.
-4. §4 — скаффолд блока.
-5. §5 — контейнер + CLI-обёртка инструмента.
+1. §0 — pre-flight, unblock accesses.
+2. §2 — read the three precedent files.
+3. §3 — select the scoring engine.
+4. §4 — block scaffold.
+5. §5 — container + CLI wrapper for the tool.
 6. §6 — workflow + PColumn IO.
-7. §7 — навесить аннотации, проверить discovery в Lead Selection.
-8. §8 — прогон тестов, sanity-чек.
-9. §9 — финализировать `description.md`.
+7. §7 — apply annotations, verify discovery in Lead Selection.
+8. §8 — run tests, sanity check.
+9. §9 — finalize `description.md`.
 
 ---
 
-## Открытые вопросы (наследуются из брифа)
+## Open questions (inherited from the brief)
 
-- `isScore: "true"` — решается после выбора метода в §3.
-- Потолок размера входа — измеряется в §5, фиксируется в §9.
-- Финальная нормализация шкалы — решается в §6 (рекомендация: 0–100).
+- `isScore: "true"` — decided after the method is chosen in §3.
+- Input-size ceiling — measured in §5, recorded in §9.
+- Final scale normalization — decided in §6 (recommendation: 0–100).
+
+---
+
+## 11. Decisions from the colleague (2026-05-28)
+
+After reviewing the discovery code in `antibody-tcr-lead-selection/model/src/util.ts`, a conflict in the brief surfaced: for humanness to become the **default** ranking criterion for the in-vivo/in-vitro presets, the allowlist in lead-selection must be extended. The brief forbade touching lead-selection ("UNCHANGED"). The colleague lifted both constraints:
+
+1. **Lead Selection is editable.** Humanness must be a **default ranking** for both **in-vivo** and **in-vitro**. The brief's "leads stays unchanged" point is dropped.
+2. **Peptide input is out of scope.** The score doesn't make sense on peptides; remove the peptide branch from the block entirely.
+
+### Required changes
+
+#### A. In `antibody-tcr-lead-selection` (`/Users/aleksandr/GIT/MILAB/antibody-tcr-lead-selection`)
+
+File: `model/src/util.ts`
+
+- [ ] Add `'pl7.app/humannessScore'` to `IN_VIVO_RANKING_SPEC_NAMES` (lines 79-82).
+- [ ] Add `'pl7.app/humannessScore'` to `IN_VITRO_RANKING_SPEC_NAMES` (lines 103-108).
+- [ ] Check whether `defaultCutoff` is needed for preset filters (if humanness shouldn't end up in filters, leave as is).
+- [ ] CHANGELOG + patch-version bump.
+
+#### B. In `humanization-score` (peptide cleanup) ✅ 2026-05-28
+
+**Delete:**
+- [x] ✅ `humanness-calc-script/src/peptide_main.py`
+- [x] ✅ `workflow/src/peptide-humanness.tpl.tengo`
+- [x] ✅ `workflow/src/peptide-process.tpl.tengo`
+
+**Edit:**
+- [x] ✅ `workflow/src/main.tpl.tengo` — removed the peptide branch and the `peptideHumannessTpl` import.
+- [x] ✅ `model/src/index.ts` — removed the peptide variant (`pl7.app/variantKey`) from `getOptions`; removed the `Modality`/`modality` output (single modality now). The `syncModality` consumer in `ui/src/app.ts` was also removed.
+- [x] ✅ `humanness-calc-script/package.json` (block-software entrypoints) — `peptide` entrypoint registration removed.
+- [x] ✅ `docs/description.md` — peptide section removed, VHH/mAb/scFv kept.
+- [x] ✅ PLAN.md §1, §6 — peptide dropped (peptide wasn't mentioned in §1; §6 wording fixed).
+- [x] ✅ CHANGELOG.md (root + humanness-calc-script) — noted that peptide is intentionally out of scope.
+- [x] ✅ `block/package.json` — `peptide` tag removed.
+
+**Verify:**
+- [x] ✅ `pnpm build` green.
+- [x] ✅ No references to `variantKey` / `peptide` / `peptide_main` / `peptide-humanness` remain in source (grep clean; remaining mentions are confined to `Antibody Humanization Score.md` and the historical execution log).
+
+#### Order
+1. B (peptide cleanup in this repo) — independent.
+2. A (allowlist in lead-selection) — separate commit/PR in the other repo.
+3. End-to-end run (§7/§8): the column appears in the default ranking of both presets.
 
 ---
 
 ## Execution log
 
-Хронология выполнения. Каждая запись: дата, шаг плана, кто делал (агент / основной поток), краткий итог.
+Chronology of execution. Each entry: date, plan step, who did it (agent / main thread), brief outcome.
 
-| Дата | Шаг | Исполнитель | Итог |
-|------|-----|-------------|------|
-| 2026-05-26 | §4 копирование скафолда из `antibody-sequence-liabilities` | сабагент | Готово. Источник: коммит `ff07500` от 2026-05-26. Старый скафолд (от `antibody-tcr-lead-selection`) удалён, заменён на `antibody-sequence-liabilities`. Сохранены `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md`, `.pnpm-store/`. Имена пакетов переименованы (`antibody-sequence-liabilities` → `humanization-score`). Директория `liabilities-calc-script/` → `humanness-calc-script/`. Обновлены `block.meta.title` = "Humanization Score", `meta.description` = placeholder, `meta.url`/`meta.docs` указывают на humanization-score. `git status`: 97 изменений, ничего не закоммичено. `pnpm install` не запускался. |
-| 2026-05-26 | Шаг A: `pnpm build` зелёный | сабагент | Build OK с нуля, правок не потребовалось. Собраны 9 задач: model, ui, workflow (tengo), humanness-calc-script, block-pack. WARN'ы: `${NPMJS_TOKEN}` в `.npmrc` (только для publish), vite chunk-size в `ui/dist` (preexisting). |
-| 2026-05-26 | Шаг B: stub-логика humanness | сабагент | Build OK + Python tests 6/6 зелёные. Stub-функция: `100 * (доля стандартных AA) / len(seq)`, диапазон 0..100, детерминированная. Выходной PColumn: одна колонка `humanness_score: Double` со спекой `pl7.app/humannessScore`, label "Humanness Score". Работает для clonotype и peptide веток. `pl7.app/isScore` НЕ выставлен (open question). Удалены `annotations.py`/`definitions.py`/`detection.py`/`scoring.py` из python-скрипта. 15 файлов изменено, ничего не закоммичено. |
-| 2026-05-27 | §9 `description.md` + косметика | сабагенты | **§9**: `docs/description.md` переписан под humanness (метод promb/OASis, шкала 0..100, модальности, isScore, альтернативы). Verified: promb = MIT (© Merck), OAS = CC-BY 4.0, OASis-валидация (Prihoda et al., mAbs 2022). OPEN ITEMS: лицензия на bundled `human-oas` артефакт (нужен sign-off), бенчмарк не измерен (§5), per-sequence валидация не подтверждена. **Косметика**: `*-liabilities.tpl.tengo`→`*-humanness.tpl.tengo` (git mv + ссылки), все CHANGELOG'и очищены → 0.1.0, версии package.json → 0.1.0. `pnpm build` зелёный (9/9). Не закоммичено. |
-| 2026-05-27 | §3 + §6 + §7: реальный скорер promb/OASis | (закоммичено: `975da7f`→`a09d386`) | Stub заменён на **promb / OASis** (`human-oas` DB): `humanness()` = доля 9-меров в человеческих репертуарах × 100. `main.py` (antibody, конкатенирует все `* aa` колонки) + `peptide_main.py` (переиспользует `humanness`). `requirements.txt`: `promb>=1.0.2`, `polars-lts-cpu==1.33.1`. Аннотации: `isScore: "true"`, `score/rankingOrder: "decreasing"`, `score/method: "promb / OASis (human-oas)"`. Model `index.ts` вычищен от liability dead-code (типы `CustomLiability` и args удалены, остался upgradeLegacy). UI вычищен от liability-контролов. **НЕ сделано**: decision-doc/`description.md` (§9, всё ещё про liabilities), sanity-тест человек vs не-человек (§8), сквозной прогон через Lead Selection (§7), сверка discovery в util.ts. |
+| Date | Step | Executor | Outcome |
+|------|------|----------|---------|
+| 2026-05-26 | §4 copying the scaffold from `antibody-sequence-liabilities` | subagent | Done. Source: commit `ff07500` of 2026-05-26. The old scaffold (from `antibody-tcr-lead-selection`) removed, replaced with `antibody-sequence-liabilities`. Kept: `.git/`, `Antibody Humanization Score.md`, `PLAN.md`, `README.md`, `.pnpm-store/`. Package names renamed (`antibody-sequence-liabilities` → `humanization-score`). Directory `liabilities-calc-script/` → `humanness-calc-script/`. Updated `block.meta.title` = "Humanization Score", `meta.description` = placeholder, `meta.url`/`meta.docs` point at humanization-score. `git status`: 97 changes, nothing committed. `pnpm install` not run. |
+| 2026-05-26 | Step A: `pnpm build` green | subagent | Build OK from scratch, no fixes required. 9 tasks built: model, ui, workflow (tengo), humanness-calc-script, block-pack. Warnings: `${NPMJS_TOKEN}` in `.npmrc` (publish-only), vite chunk-size in `ui/dist` (preexisting). |
+| 2026-05-26 | Step B: stub humanness logic | subagent | Build OK + Python tests 6/6 green. Stub function: `100 * (fraction of standard AAs) / len(seq)`, range 0..100, deterministic. Output PColumn: a single `humanness_score: Double` column with spec `pl7.app/humannessScore`, label "Humanness Score". Works for both clonotype and peptide branches. `pl7.app/isScore` NOT set (open question). Removed `annotations.py`/`definitions.py`/`detection.py`/`scoring.py` from the python script. 15 files changed, nothing committed. |
+| 2026-05-27 | §9 `description.md` + cosmetics | subagents | **§9**: `docs/description.md` rewritten for humanness (method promb/OASis, scale 0..100, modalities, isScore, alternatives). Verified: promb = MIT (© Merck), OAS = CC-BY 4.0, OASis validation (Prihoda et al., mAbs 2022). OPEN ITEMS: license of the bundled `human-oas` artifact (needs sign-off), benchmark not measured (§5), per-sequence validation not confirmed. **Cosmetics**: `*-liabilities.tpl.tengo`→`*-humanness.tpl.tengo` (git mv + references), all CHANGELOGs cleaned → 0.1.0, package.json versions → 0.1.0. `pnpm build` green (9/9). Not committed. |
+| 2026-05-27 | §3 + §6 + §7: real scorer promb/OASis | (committed: `975da7f`→`a09d386`) | Stub replaced with **promb / OASis** (`human-oas` DB): `humanness()` = fraction of 9-mers in human repertoires × 100. `main.py` (antibody, concatenates all `* aa` columns) + `peptide_main.py` (reuses `humanness`). `requirements.txt`: `promb>=1.0.2`, `polars-lts-cpu==1.33.1`. Annotations: `isScore: "true"`, `score/rankingOrder: "decreasing"`, `score/method: "promb / OASis (human-oas)"`. Model `index.ts` cleaned of liability dead-code (types `CustomLiability` and args removed, `upgradeLegacy` kept). UI cleaned of liability controls. **Not done**: decision-doc/`description.md` (§9, still about liabilities), human-vs-non-human sanity test (§8), end-to-end run through Lead Selection (§7), discovery cross-check in util.ts. |
 
-### Шаг B — хвосты (от сабагента)
+### Step B — tails (from subagent)
 
-Это «недоделки» stub-этапа, которые НЕ блокируют запуск, но потребуют внимания:
+These are stub-stage "leftovers" that do NOT block running but need attention:
 
-1. ~~**Реальный скорер**~~ ✅ 2026-05-27: заменён на promb/OASis (`human-oas`) в `main.py` + `peptide_main.py`.
-2. ~~**`pl7.app/isScore`**~~ ✅ 2026-05-27: выставлен `true` + `rankingOrder: "decreasing"` в обоих tengo-шаблонах. ⚠️ обоснование в `description.md` всё ещё не зафиксировано.
-3. ~~**UI настроечная панель**~~ ✅ 2026-05-27: liability-контролы удалены, `MainPage.vue` сведён к таблице + customBlockLabel.
-4. ~~**`model/src/index.ts`** dead-code~~ ✅ 2026-05-27: типы `CustomLiability`/liability-args удалены.
-5. ~~**Tengo `*-liabilities.tpl.tengo`**~~ ✅ 2026-05-27: переименованы в `clonotype-humanness.tpl.tengo` / `peptide-humanness.tpl.tengo` (git mv), ссылки в `main.tpl.tengo` обновлены, `pnpm build` зелёный. (Внутренние var-имена типа `liabilitiesResultCalc` оставлены — не влияют на сборку.)
-6. **Trace type** = `milaboratories.humanization-score` — если у Lead Selection есть привязка к `milaboratories.sequence-liabilities`, нужна сверка (см. §7).
-7. **Workflow `bundleBuilder`** — собирает sequences + annotations + peptide-секвенции; `main.py` конкатенирует все `* aa` колонки. Пересмотреть, нужна ли per-chain (heavy/light) детализация вместо одного числа (см. §6).
+1. ~~**Real scorer**~~ ✅ 2026-05-27: replaced with promb/OASis (`human-oas`) in `main.py` + `peptide_main.py`.
+2. ~~**`pl7.app/isScore`**~~ ✅ 2026-05-27: set to `true` + `rankingOrder: "decreasing"` in both tengo templates. ⚠️ The rationale in `description.md` is still not recorded.
+3. ~~**UI settings panel**~~ ✅ 2026-05-27: liability controls removed, `MainPage.vue` reduced to the table + customBlockLabel.
+4. ~~**`model/src/index.ts`** dead-code~~ ✅ 2026-05-27: `CustomLiability` types / liability args removed.
+5. ~~**Tengo `*-liabilities.tpl.tengo`**~~ ✅ 2026-05-27: renamed to `clonotype-humanness.tpl.tengo` / `peptide-humanness.tpl.tengo` (git mv), references in `main.tpl.tengo` updated, `pnpm build` green. (Internal var names like `liabilitiesResultCalc` left intact — they don't affect the build.)
+6. **Trace type** = `milaboratories.humanization-score` — if Lead Selection has a binding to `milaboratories.sequence-liabilities`, a cross-check is needed (see §7).
+7. **Workflow `bundleBuilder`** — collects sequences + annotations + peptide sequences; `main.py` concatenates all `* aa` columns. Reconsider whether per-chain (heavy/light) detail is needed instead of a single number (see §6).
 
-### §4 — что осталось (нужны решения / не код)
+### §4 — what's left (decisions needed / not code)
 
-Это «хвост» скафолд-этапа, фиксирую отдельно, чтобы не потерять:
+The "tail" of the scaffold stage, recorded separately so it's not lost:
 
-1. **Логотипы** `logos/block-logo.png`, `logos/organization-logo.png` — сейчас от sequence-liabilities, нужны свои (или временно оставить, если ОК).
-2. **`docs/description.md`** (`block.meta.longDescription`) — переписать под humanization score, финал в §9.
-3. **`block.meta`**: финальные `title`, `description`, `docs`-URL, `tags`, `marketplaceRanking`. Сейчас placeholder.
-4. ~~**`CHANGELOG.md`**~~ ✅ 2026-05-27: все CHANGELOG'и очищены от истории `antibody-sequence-liabilities`, сведены к одной записи `## 0.1.0 / Initial release`.
-5. ~~**`version`**~~ ✅ 2026-05-27: версии во всех `package.json` сброшены к `0.1.0` (block/model/ui/workflow/humanness-calc-script).
-6. ~~**`pnpm install`** — запустить для регенерации `pnpm-lock.yaml` под новые имена пакетов и установки `node_modules`.~~ ✅ 2026-05-26: выполнено, exit=0. Предупреждения: 6 deprecated subdependencies (transitive, неблокирующие) + peer-dep warnings.
-7. **Бизнес-логика** — сейчас под капотом реализация sequence-liabilities (workflow tengo, model TS, UI, python-скрипт). Это будет вычищаться / переписываться на следующих шагах плана (§5–§7), а не здесь.
+1. **Logos** `logos/block-logo.png`, `logos/organization-logo.png` — currently from sequence-liabilities; we need our own (or keep them temporarily if OK).
+2. **`docs/description.md`** (`block.meta.longDescription`) — rewrite for humanization score, final in §9.
+3. **`block.meta`**: final `title`, `description`, `docs` URL, `tags`, `marketplaceRanking`. Currently placeholder.
+4. ~~**`CHANGELOG.md`**~~ ✅ 2026-05-27: all CHANGELOGs cleaned of `antibody-sequence-liabilities` history, reduced to a single `## 0.1.0 / Initial release` entry.
+5. ~~**`version`**~~ ✅ 2026-05-27: versions in all `package.json` reset to `0.1.0` (block/model/ui/workflow/humanness-calc-script).
+6. ~~**`pnpm install`** — run to regenerate `pnpm-lock.yaml` against the new package names and install `node_modules`.~~ ✅ 2026-05-26: done, exit=0. Warnings: 6 deprecated subdependencies (transitive, non-blocking) + peer-dep warnings.
+7. **Business logic** — currently the sequence-liabilities implementation under the hood (workflow tengo, model TS, UI, python script). This is to be cleaned up / rewritten in the next plan steps (§5–§7), not here.

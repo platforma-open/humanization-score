@@ -3,3 +3,5 @@
 ## 0.1.0
 
 Initial release.
+
+- Peptide entrypoint (`peptide_main.py`) intentionally removed as out of scope. Only the antibody clonotype entrypoint (`main`) is shipped.
