@@ -1,2 +1,2 @@
 polars-lts-cpu==1.33.1
-promb>=1.0.2
+promb==1.0.2

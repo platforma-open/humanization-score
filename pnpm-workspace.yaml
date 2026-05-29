@@ -2,7 +2,7 @@ packages:
   - workflow
   - model
   - ui
-  - humanness-calc-script
+  - software
   - block
 
 catalog:
@@ -21,7 +21,8 @@ catalog:
   '@milaboratories/strings': 0.1.2
 
   # Block-specific dependencies
-  "@platforma-open/milaboratories.runenv-python-3": ^1.4.9
+  # Custom Python runenv bundling promb + its offline OASis/SwissProt databases.
+  '@platforma-open/milaboratories.runenv-python-3.12.10-humanness': 0.2.0
 
   # Common dependencies - can use ^ or ~
   'vue': 3.5.24

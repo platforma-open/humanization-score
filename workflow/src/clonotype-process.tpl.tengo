@@ -1,15 +1,10 @@
 self := import("@platforma-sdk/workflow-tengo:tpl")
-exec := import("@platforma-sdk/workflow-tengo:exec")
-assets:= import("@platforma-sdk/workflow-tengo:assets")
 xsv := import("@platforma-sdk/workflow-tengo:pframes.xsv")
-ll := import("@platforma-sdk/workflow-tengo:ll")
 pframes := import("@platforma-sdk/workflow-tengo:pframes")
 pSpec := import("@platforma-sdk/workflow-tengo:pframes.spec")
-text := import("text")
-json := import("json")
 math := import("math")
 
-self.defineOutputs("outputLiabilities", "exportPframe")
+self.defineOutputs("outputHumanness", "exportPframe")
 
 
 self.body(func(args) {
@@ -24,7 +19,7 @@ self.body(func(args) {
 	convMemGiB := string(int(math.max(16, baseMemGiB / 4))) + "GiB"
 
 	params := args.params
-	liabilitiesTable := args.liabilitiesTable
+	humannessTable := args.humannessTable
 	datasetSpec := params.datasetSpec
 
 	clonotypeKeySpec := datasetSpec.axesSpec[1]
@@ -79,13 +74,22 @@ self.body(func(args) {
 	// Convert the parquet table to PColumns once and reuse the result for
 	// both the output frame and the exported pframe.
 	importedColumns := xsv.importFile(
-		liabilitiesTable,
+		humannessTable,
 		"parquet",
 		specs,
 		{splitDataAndSpec: true, cpu: 1, mem: convMemGiB}
 	)
 
+	// Fall back to the input dataset name when the user has not set a custom label,
+	// keeping the provenance trace consistent with the block subtitle.
 	blockLabel := customBlockLabel
+	if blockLabel == "" {
+		if datasetSpec.annotations && datasetSpec.annotations["pl7.app/label"] {
+			blockLabel = datasetSpec.annotations["pl7.app/label"]
+		} else {
+			blockLabel = "Humanization Score"
+		}
+	}
 
 	traceSteps := [{
 		type: "milaboratories.humanization-score",
@@ -104,11 +108,11 @@ self.body(func(args) {
 		exportPframe.add(k, humannessTrace.inject(v.spec), v.data)
 	}
 
-	outputLiabilities := outputBuilder.build()
+	outputHumanness := outputBuilder.build()
 	exportPframe = exportPframe.build()
 
 	return {
-		outputLiabilities: pframes.exportFrame(outputLiabilities),
+		outputHumanness: pframes.exportFrame(outputHumanness),
 		exportPframe: exportPframe
 	}
 

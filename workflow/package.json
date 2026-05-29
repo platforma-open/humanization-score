@@ -9,7 +9,7 @@
     "do-pack": "shx rm -f *.tgz && pnpm pack && shx mv *.tgz package.tgz"
   },
   "dependencies": {
-    "@platforma-open/milaboratories.humanization-score.humanness-calc-script": "workspace:*",
+    "@platforma-open/milaboratories.humanization-score.software": "workspace:*",
     "@platforma-sdk/workflow-tengo": "catalog:"
   },
   "devDependencies": {

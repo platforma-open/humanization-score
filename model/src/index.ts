@@ -8,6 +8,7 @@ import {
   DataModelBuilder,
   createPlDataTableStateV2,
   createPlDataTableV3,
+  plRefsEqual,
 } from '@platforma-sdk/model';
 export type * from '@milaboratories/helpers';
 
@@ -28,6 +29,22 @@ export type BlockData = {
   tableState: PlDataTableStateV2;
 };
 
+// Selectors for the input dataset anchor — shared between `inputOptions`
+// (the dropdown) and `subtitle` (so the default label matches the dataset name).
+const inputSelectors = [{
+  axes: [
+    { name: 'pl7.app/sampleId' },
+    { name: 'pl7.app/vdj/clonotypeKey' },
+  ],
+  annotations: { 'pl7.app/isAnchor': 'true' },
+}, {
+  axes: [
+    { name: 'pl7.app/sampleId' },
+    { name: 'pl7.app/vdj/scClonotypeKey' },
+  ],
+  annotations: { 'pl7.app/isAnchor': 'true' },
+}];
+
 const dataModel = new DataModelBuilder()
   .from<BlockData>('v1')
   .upgradeLegacy<OldArgs, OldUiState>(({ args, uiState }) => ({
@@ -45,30 +62,20 @@ export const platforma = BlockModelV3.create(dataModel)
     if (!data.inputAnchor) throw new Error('Input anchor is required');
 
     return {
-      customBlockLabel: data.customBlockLabel || 'Humanness Score',
+      // Empty when unset; the workflow falls back to the input dataset name so
+      // the provenance trace label matches the block subtitle.
+      customBlockLabel: data.customBlockLabel || '',
       inputAnchor: data.inputAnchor,
       mem: data.mem,
     };
   })
 
   .output('inputOptions', (ctx) =>
-    ctx.resultPool.getOptions([{
-      axes: [
-        { name: 'pl7.app/sampleId' },
-        { name: 'pl7.app/vdj/clonotypeKey' },
-      ],
-      annotations: { 'pl7.app/isAnchor': 'true' },
-    }, {
-      axes: [
-        { name: 'pl7.app/sampleId' },
-        { name: 'pl7.app/vdj/scClonotypeKey' },
-      ],
-      annotations: { 'pl7.app/isAnchor': 'true' },
-    }]),
+    ctx.resultPool.getOptions(inputSelectors),
   )
 
   .outputWithStatus('pt', (ctx) => {
-    const pCols = ctx.outputs?.resolve('outputLiabilities')?.getPColumns();
+    const pCols = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
     if (pCols === undefined) {
       return undefined;
     }
@@ -82,9 +89,21 @@ export const platforma = BlockModelV3.create(dataModel)
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
 
-  .title(() => 'Humanness Score')
+  .title(() => 'Humanization Score')
 
-  .subtitle((ctx) => ctx.data.customBlockLabel || 'Humanness Score')
+  .subtitle((ctx) => {
+    // An explicit, user-set label always wins.
+    if (ctx.data.customBlockLabel) return ctx.data.customBlockLabel;
+    // Otherwise default to the selected input dataset's name, so the subtitle
+    // carries context instead of duplicating the "Humanization Score" title.
+    if (ctx.data.inputAnchor) {
+      const selected = ctx.resultPool
+        .getOptions(inputSelectors)
+        ?.find((opt) => plRefsEqual(opt.ref, ctx.data.inputAnchor!, true));
+      if (selected?.label) return selected.label;
+    }
+    return 'Humanization Score';
+  })
 
   .sections((_) => [
     { type: 'link', href: '/', label: 'Table' },

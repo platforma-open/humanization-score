@@ -21,6 +21,9 @@ catalogs:
     '@milaboratories/ts-configs':
       specifier: 1.2.3
       version: 1.2.3
+    '@platforma-open/milaboratories.runenv-python-3.12.10-humanness':
+      specifier: 0.2.0
+      version: 0.2.0
     '@platforma-sdk/block-tools':
       specifier: 2.9.3
       version: 2.9.3
@@ -42,9 +45,6 @@ catalogs:
     '@platforma-sdk/workflow-tengo':
       specifier: 6.0.0
       version: 6.0.0
-    '@vueuse/core':
-      specifier: ^13.6.0
-      version: 13.9.0
     eslint:
       specifier: ^9.25.1
       version: 9.28.0
@@ -100,16 +100,6 @@ importers:
         specifier: 'catalog:'
         version: 2.9.3
 
-  humanness-calc-script:
-    dependencies:
-      '@platforma-open/milaboratories.runenv-python-3.12.10-humanness':
-        specifier: 0.2.0
-        version: 0.2.0
-    devDependencies:
-      '@platforma-sdk/package-builder':
-        specifier: 'catalog:'
-        version: 3.12.0
-
   model:
     dependencies:
       '@milaboratories/helpers':
@@ -141,6 +131,16 @@ importers:
         specifier: 'catalog:'
         version: 4.0.16(@types/node@24.5.2)(lightningcss@1.32.0)(yaml@2.8.2)
 
+  software:
+    dependencies:
+      '@platforma-open/milaboratories.runenv-python-3.12.10-humanness':
+        specifier: 'catalog:'
+        version: 0.2.0
+    devDependencies:
+      '@platforma-sdk/package-builder':
+        specifier: 'catalog:'
+        version: 3.12.0
+
   ui:
     dependencies:
       '@milaboratories/strings':
@@ -155,9 +155,6 @@ importers:
       '@platforma-sdk/ui-vue':
         specifier: 'catalog:'
         version: 1.77.15(@bytecodealliance/preview2-shim@0.17.8)(typescript@5.6.3)
-      '@vueuse/core':
-        specifier: 'catalog:'
-        version: 13.9.0(vue@3.5.24(typescript@5.6.3))
       vue:
         specifier: 'catalog:'
         version: 3.5.24(typescript@5.6.3)
@@ -183,9 +180,9 @@ importers:
 
   workflow:
     dependencies:
-      '@platforma-open/milaboratories.humanization-score.humanness-calc-script':
+      '@platforma-open/milaboratories.humanization-score.software':
         specifier: workspace:*
-        version: link:../humanness-calc-script
+        version: link:../software
       '@platforma-sdk/workflow-tengo':
         specifier: 'catalog:'
         version: 6.0.0

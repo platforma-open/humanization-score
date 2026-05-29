@@ -1,14 +1,9 @@
 wf := import("@platforma-sdk/workflow-tengo:workflow")
 render := import("@platforma-sdk/workflow-tengo:render")
 smart := import("@platforma-sdk/workflow-tengo:smart")
-exec := import("@platforma-sdk/workflow-tengo:exec")
 assets := import("@platforma-sdk/workflow-tengo:assets")
-xsv := import("@platforma-sdk/workflow-tengo:pframes.xsv")
 ll := import("@platforma-sdk/workflow-tengo:ll")
-pSpec := import("@platforma-sdk/workflow-tengo:pframes.spec")
 pFrames := import("@platforma-sdk/workflow-tengo:pframes")
-text := import("text")
-json := import("json")
 math := import("math")
 
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
@@ -79,30 +74,14 @@ wf.body(func(args) {
 	seqTableBuilder := pFrames.parquetFileBuilder()
 	seqTableBuilder.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
 
-	// Determine the primary assembling feature (e.g., CDR3)
-	// This assumes all 'sequences' share the same core feature or takes the first one's.
-	feature := ""
-	if len(sequences) > 0 {
-		feature = sequences[0].spec.domain["pl7.app/vdj/feature"]
-	} else {
-		ll.panic("No sequences found to determine the primary feature.")
+	if len(sequences) == 0 {
+		ll.panic("No sequences found in the input data.")
 	}
 
 	hasAnnotations := len(annotations) > 0
 
-	numberingSchema := ""
-	for seq_entry in sequences {
-		if seq_entry.spec.annotations && seq_entry.spec.annotations["pl7.app/vdj/numberingSchema"] {
-			currentSchema := seq_entry.spec.annotations["pl7.app/vdj/numberingSchema"]
-			if numberingSchema == "" {
-				numberingSchema = currentSchema
-			} else if numberingSchema != currentSchema {
-				ll.panic("Multiple different numbering schemas found in input sequences. This is not supported. Found: '" + numberingSchema + "' and '" + currentSchema + "'.")
-			}
-		}
-	}
-
-	// Track which features are actually present in the data
+	// Track which features are present, to avoid emitting duplicate
+	// sequence-table headers below.
 	coveredFeatures := {}
 
 	if isSingleCell {
@@ -178,16 +157,11 @@ wf.body(func(args) {
 		}
 	}
 
-	features := []
-	for k, v in coveredFeatures {
-		features += [k]
-	}
-
 	seqTableBuilder.mem(string(int(math.max(16, baseMemGiB / 4))) + "GiB")
 	seqTableBuilder.cpu(1)
 	seqTable := seqTableBuilder.build()
 
-	liabilitiesResultCalc := render.create(calculateHumannessTpl, {
+	humannessResultCalc := render.create(calculateHumannessTpl, {
 		table: seqTable
 	}, {
 		// mem only affects resource allocation, not the result, so pass it as a
@@ -197,17 +171,14 @@ wf.body(func(args) {
 		}
 	})
 
-	liabilitiesResult := liabilitiesResultCalc.output("result", 24 * 60 * 60 * 1000)
+	humannessResult := humannessResultCalc.output("result", 24 * 60 * 60 * 1000)
 
 	processResult := render.create(processTpl, {
-		liabilitiesTable: liabilitiesResult,
+		humannessTable: humannessResult,
 		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
 		params: smart.createJsonResource({
-			datasetSpec: datasetSpec,
-			isSingleCell: isSingleCell,
-			coveredFeatures: features,
-			hasAnnotations: hasAnnotations
+			datasetSpec: datasetSpec
 		})
 	}, {
 		// mem only affects resource allocation, not the result, so pass it as a
@@ -217,12 +188,12 @@ wf.body(func(args) {
 		}
 	})
 
-	outputLiabilities := processResult.output("outputLiabilities", 24 * 60 * 60 * 1000)
+	outputHumanness := processResult.output("outputHumanness", 24 * 60 * 60 * 1000)
 	exportPframe := processResult.output("exportPframe", 24 * 60 * 60 * 1000)
 
 	return {
 		outputs: {
-			outputLiabilities: outputLiabilities
+			outputHumanness: outputHumanness
 		},
 		exports: {
 			exportPframe: exportPframe

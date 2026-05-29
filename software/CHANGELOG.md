@@ -1,4 +1,4 @@
-# @platforma-open/milaboratories.humanization-score.humanness-calc-script
+# @platforma-open/milaboratories.humanization-score.software
 
 ## 0.2.0
 
