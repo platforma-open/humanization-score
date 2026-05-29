@@ -1,5 +1,16 @@
 # @platforma-open/milaboratories.humanization-score.ui
 
+## 0.3.1
+
+### Patch Changes
+
+- 2c8b719: Remove the per-sample box plot ("By Sample") view: the `perSamplePf` /
+  `perSamplePfPcols` outputs, the `graphStateBoxplot` state and its defaults, and
+  the `/by-sample` section are gone. The score distribution histogram remains.
+- Updated dependencies [5a28f73]
+- Updated dependencies [2c8b719]
+  - @platforma-open/milaboratories.humanization-score.model@0.3.1
+
 ## 0.3.0
 
 ### Minor Changes
