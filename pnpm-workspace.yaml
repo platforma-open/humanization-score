@@ -9,17 +9,17 @@ catalog:
   # SDK packages - EXACT VERSIONS (no ^ or ~)
   '@milaboratories/ts-builder': 1.5.0
   '@milaboratories/ts-configs': 1.2.3
-  '@platforma-sdk/workflow-tengo': 6.0.0
-  '@platforma-sdk/model': 1.77.15
-  '@platforma-sdk/ui-vue': 1.77.15
-  '@platforma-sdk/tengo-builder': 3.0.5
+  '@platforma-sdk/workflow-tengo': 6.1.0
+  '@platforma-sdk/model': 1.77.17
+  '@platforma-sdk/ui-vue': 1.77.17
+  '@platforma-sdk/tengo-builder': 4.0.0
   '@platforma-sdk/package-builder': 3.12.0
-  '@platforma-sdk/block-tools': 2.9.3
+  '@platforma-sdk/block-tools': 2.10.0
   '@platforma-sdk/eslint-config': 1.2.0
-  '@platforma-sdk/test': 1.77.15
+  '@platforma-sdk/test': 1.77.17
   '@milaboratories/helpers': 1.14.2
   '@milaboratories/strings': 0.1.2
-  '@milaboratories/graph-maker': 1.4.3
+  '@milaboratories/graph-maker': 1.4.4
 
   # Block-specific dependencies
   # Custom Python runenv bundling promb + its offline OASis/SwissProt databases.
