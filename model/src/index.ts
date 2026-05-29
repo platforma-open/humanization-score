@@ -148,52 +148,25 @@ export const platforma = BlockModelV3.create(dataModel)
   })
 
   // --- Per-sample distribution (box / violin) --------------------------------
-  // The humanness column is keyed by clonotypeKey only (sample-agnostic). To get
-  // a per-sample view we join it with the input dataset's primary abundance
-  // column, which carries the [sampleId, clonotypeKey] axes. graph-maker joins on
-  // the shared clonotypeKey axis, so each (sample, clonotype) pair contributes the
-  // clonotype's score — grouping by sampleId then yields a distribution per sample.
+  // The workflow emits a dedicated pframe whose humanness column already declares
+  // [sampleId, clonotypeKey] as real axes (the per-clonotype score broadcast onto
+  // every sample the clonotype appears in). So here we just surface that output —
+  // no plot-time join — and the page can grab the sampleId axis straight from the
+  // score column's own spec.
   // This is a box/violin (median + spread + tails) on purpose, not a per-sample
   // mean: the spread is exactly what a single mean would hide.
-  // Degrades gracefully: if the dataset has no primary-abundance column the join
-  // adds nothing, the sampleId axis is absent, and the page simply can't preselect
-  // a grouping (the chart still opens). VDJ datasets almost always carry abundance.
+  // Degrades gracefully: datasets without a primary-abundance column produce no
+  // per-sample output, so the handle is simply undefined and the page stays empty.
   .outputWithStatus('perSamplePf', (ctx): PFrameHandle | undefined => {
-    const humanness = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
-    if (humanness === undefined) return undefined;
-
-    const ref = ctx.data.inputAnchor;
-    if (ref === undefined) return undefined;
-
-    const abundance = ctx.resultPool.getAnchoredPColumns({ main: ref }, [{
-      axes: [{ anchor: 'main', idx: 0 }, { anchor: 'main', idx: 1 }],
-      annotations: {
-        'pl7.app/isAbundance': 'true',
-        'pl7.app/abundance/normalized': 'false',
-        'pl7.app/abundance/isPrimary': 'true',
-      },
-    }]);
-
-    return createPFrameForGraphs(ctx, [...humanness, ...(abundance ?? [])]);
+    const pCols = ctx.outputs?.resolve('perSamplePf')?.getPColumns();
+    if (pCols === undefined) return undefined;
+    return createPFrameForGraphs(ctx, pCols);
   })
 
   .output('perSamplePfPcols', (ctx): PColumnIdAndSpec[] | undefined => {
-    const humanness = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
-    if (humanness === undefined || humanness.length === 0) return undefined;
-
-    const ref = ctx.data.inputAnchor;
-    if (ref === undefined) return undefined;
-
-    const abundance = ctx.resultPool.getAnchoredPColumns({ main: ref }, [{
-      axes: [{ anchor: 'main', idx: 0 }, { anchor: 'main', idx: 1 }],
-      annotations: {
-        'pl7.app/isAbundance': 'true',
-        'pl7.app/abundance/normalized': 'false',
-        'pl7.app/abundance/isPrimary': 'true',
-      },
-    }]);
-
-    return [...humanness, ...(abundance ?? [])].map((c) => ({ columnId: c.id, spec: c.spec }));
+    const pCols = ctx.outputs?.resolve('perSamplePf')?.getPColumns();
+    if (pCols === undefined || pCols.length === 0) return undefined;
+    return pCols.map((c) => ({ columnId: c.id, spec: c.spec }));
   })
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)

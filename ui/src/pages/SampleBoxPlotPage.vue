@@ -17,19 +17,17 @@ const graphState = computed({
   set: (v) => { app.model.data.graphStateBoxplot = v; },
 });
 
-// Group humanness by sample: y = score, primary grouping = the sampleId axis
-// carried by the joined-in abundance column (axesSpec[0]).
+// Group humanness by sample: y = score, primary grouping = the sampleId axis.
+// The per-sample score column is keyed by [sampleId, clonotypeKey], so the
+// sampleId axis comes straight from the score column's own spec (axesSpec[0]).
 const defaultOptions = computed((): PredefinedGraphOption<'discrete'>[] | undefined => {
   const pcols = app.model.outputs.perSamplePfPcols;
   if (!pcols) return undefined;
 
   const scoreCol = pcols.find((p) => p.spec.name === HUMANNESS_SCORE_COLUMN);
-  const abundanceCol = pcols.find(
-    (p) => p.spec.annotations?.['pl7.app/isAbundance'] === 'true',
-  );
-  if (!scoreCol || !abundanceCol) return undefined;
+  if (!scoreCol) return undefined;
 
-  const sampleAxis = abundanceCol.spec.axesSpec[0];
+  const sampleAxis = scoreCol.spec.axesSpec?.[0];
   if (!sampleAxis) return undefined;
 
   return [

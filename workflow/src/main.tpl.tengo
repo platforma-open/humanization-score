@@ -4,6 +4,8 @@ smart := import("@platforma-sdk/workflow-tengo:smart")
 assets := import("@platforma-sdk/workflow-tengo:assets")
 ll := import("@platforma-sdk/workflow-tengo:ll")
 pFrames := import("@platforma-sdk/workflow-tengo:pframes")
+xsv := import("@platforma-sdk/workflow-tengo:pframes.xsv")
+pt := import("@platforma-sdk/workflow-tengo:pt")
 math := import("math")
 
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
@@ -46,6 +48,19 @@ wf.prepare(func(args) {
 			"pl7.app/alphabet": "aminoacid"
 		}
 	}, "additionalSequences")
+
+	// Primary, non-normalized abundance carries the [sampleId, clonotypeKey] axes.
+	// We use it purely as the per-sample membership: which clonotypes appear in
+	// which samples, so the per-clonotype humanness score can be broadcast per
+	// sample (see wf.body). Optional — datasets without it just skip that output.
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 0 }, { anchor: "main", idx: 1 }],
+		annotations: {
+			"pl7.app/isAbundance": "true",
+			"pl7.app/abundance/normalized": "false",
+			"pl7.app/abundance/isPrimary": "true"
+		}
+	}, "abundance")
 
 		return {
 			columns: bundleBuilder.build()
@@ -191,10 +206,95 @@ wf.body(func(args) {
 	outputHumanness := processResult.output("outputHumanness", 24 * 60 * 60 * 1000)
 	exportPframe := processResult.output("exportPframe", 24 * 60 * 60 * 1000)
 
+	outputs := {
+		outputHumanness: outputHumanness
+	}
+
+	// --- Per-sample humanness pframe -----------------------------------------
+	// The humanness score is computed once per clonotype (it is sample-independent:
+	// same sequence -> same score). To expose a per-sample distribution with
+	// sampleId as a *real axis in the column spec* — rather than relying on a
+	// graph-maker-side join at plot time — we broadcast each clonotype's score
+	// across the samples it appears in: inner-join the score table (keyed by
+	// clonotypeKey) with the input's primary-abundance membership (keyed by
+	// [sampleId, clonotypeKey]) on clonotypeKey, then import the result as a
+	// pframe whose single column carries both axes.
+	// Degrades gracefully: a dataset with no primary-abundance column simply
+	// doesn't emit this output and the By-sample page stays empty.
+	convMemGiB := string(int(math.max(16, baseMemGiB / 4))) + "GiB"
+	abundanceColumns := columnsWithSequences.getColumns("abundance")
+	if len(abundanceColumns) > 0 {
+		sampleAxisSpec := datasetSpec.axesSpec[0]
+		clonotypeKeySpec := datasetSpec.axesSpec[1]
+
+		// Membership table: one row per (sampleId, clonotypeKey) present in the input.
+		membershipBuilder := pFrames.parquetFileBuilder()
+		membershipBuilder.setAxisHeader(sampleAxisSpec, "sampleId")
+		membershipBuilder.setAxisHeader(clonotypeKeySpec, "clonotypeKey")
+		membershipBuilder.add(columnsWithSequences.getColumn(abundanceColumns[0].key), {header: "abundance"})
+		membershipBuilder.mem(convMemGiB)
+		membershipBuilder.cpu(1)
+		membershipTable := membershipBuilder.build()
+
+		// Inner join broadcasts the single per-clonotype score onto every
+		// (sample, clonotype) pair the clonotype belongs to.
+		ptw := pt.workflow()
+		scoreDf := ptw.frame(humannessResult, {format: "parquet"})
+		memberDf := ptw.frame(membershipTable, {format: "parquet"})
+		perSampleDf := memberDf.join(scoreDf, {
+			how: "inner",
+			on: "clonotypeKey",
+			leftColumns: ["sampleId", "clonotypeKey"],
+			rightColumns: ["humanness_score"]
+		})
+		perSampleDf.save("per-sample-humanness.parquet")
+		ptRes := ptw.run()
+		perSampleParquet := ptRes.getFile("per-sample-humanness.parquet")
+
+		// Import via the same proven path as the per-clonotype output, but with
+		// sampleId declared as a real first axis in the spec.
+		perSampleSpecs := {
+			axes: [
+				{ column: "sampleId", spec: sampleAxisSpec },
+				{ column: "clonotypeKey", spec: clonotypeKeySpec }
+			],
+			columns: [
+				{
+					column: "humanness_score",
+					id: "humannessScore",
+					allowNA: true,
+					spec: {
+						name: "pl7.app/humannessScore",
+						valueType: "Double",
+						domain: {
+							"pl7.app/blockId": blockId
+						},
+						annotations: {
+							"pl7.app/label": "Humanness Score",
+							"pl7.app/description": "Promb / OASis (human-oas) humanness score in [0, 100]; fraction of 9-mers found in human antibody repertoires, rescaled. Higher = more human.",
+							"pl7.app/format": ".2~f",
+							"pl7.app/isScore": "true",
+							"pl7.app/score/rankingOrder": "decreasing",
+							"pl7.app/score/method": "promb / OASis (human-oas)"
+						}
+					}
+				}
+			],
+			storageFormat: "Parquet",
+			partitionKeyLength: 0
+		}
+
+		perSampleImported := xsv.importFile(perSampleParquet, "parquet", perSampleSpecs, {splitDataAndSpec: true, cpu: 1, mem: convMemGiB})
+
+		perSampleBuilder := pFrames.pFrameBuilder()
+		for k, v in perSampleImported {
+			perSampleBuilder.add(k, v.spec, v.data)
+		}
+		outputs.perSamplePf = pFrames.exportFrame(perSampleBuilder.build())
+	}
+
 	return {
-		outputs: {
-			outputHumanness: outputHumanness
-		},
+		outputs: outputs,
 		exports: {
 			exportPframe: exportPframe
 		}
