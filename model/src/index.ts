@@ -48,12 +48,22 @@ export const defaultGraphStateHistogram = (): GraphMakerState => ({
   axesSettings: {
     other: { binsCount: 20 },
   },
+  // Give the bars a solid fill instead of the default white — colour values
+  // taken from graph-maker's fixed palette ("Blue").
+  layersSettings: {
+    bins: { fillColor: '#2D93FA' },
+  },
 });
 
 export const defaultGraphStateBoxplot = (): GraphMakerState => ({
   title: 'Humanness by Sample',
   template: 'box',
   currentTab: null,
+  // Solid fill for the boxes (graph-maker fixed palette, "Teal") so the
+  // per-sample plot isn't drawn in white.
+  layersSettings: {
+    box: { fillColor: '#27C2C2' },
+  },
 });
 
 // Selectors for the input dataset anchor — shared between `inputOptions`
