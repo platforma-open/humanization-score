@@ -2,9 +2,9 @@
 """Antibody-mode entry point for humanness scoring.
 
 Pipeline overview:
-- Input TSV: one row per clonotype, keyed by `clonotypeKey`. Contains one or more
-  amino-acid sequence columns (e.g. "CDR3 aa", "Heavy CDR3 aa", "FR1 aa", ...).
-- Output TSV: two columns — `clonotypeKey` and `humanness_score` (Float, 0..100,
+- Input Parquet: one row per clonotype, keyed by `clonotypeKey`. Contains one or
+  more amino-acid sequence columns (e.g. "CDR3 aa", "Heavy CDR3 aa", "FR1 aa", ...).
+- Output Parquet: two columns — `clonotypeKey` and `humanness_score` (Float, 0..100,
   may be null for sequences too short to score).
 
 For each row we collect every column whose name ends with " aa" (case-insensitive)
@@ -66,14 +66,14 @@ def _identify_sequence_columns(columns: list[str]) -> list[str]:
 
 def main() -> None:
     p = argparse.ArgumentParser(description="Compute promb/OASis humanness score per clonotype.")
-    p.add_argument("input_tsv", help="Input TSV")
-    p.add_argument("output_tsv", help="Output TSV")
+    p.add_argument("input_parquet", help="Input Parquet")
+    p.add_argument("output_parquet", help="Output Parquet")
     args = p.parse_args()
 
     try:
-        df = pl.read_csv(args.input_tsv, separator="\t", ignore_errors=True, infer_schema_length=1000)
+        df = pl.read_parquet(args.input_parquet)
     except Exception as e:
-        sys.exit(f"Error reading input TSV '{args.input_tsv}': {e}")
+        sys.exit(f"Error reading input Parquet '{args.input_parquet}': {e}")
 
     df.columns = [" ".join(col.strip().split()) for col in df.columns]
 
@@ -96,14 +96,14 @@ def main() -> None:
         output_cols.append("clonotypeKey")
     output_cols.append("humanness_score")
 
-    # If clonotypeKey isn't present (degenerate input), still write a one-column TSV.
+    # If clonotypeKey isn't present (degenerate input), still write a one-column table.
     df_out = df_scored.select([c for c in output_cols if c in df_scored.columns])
 
     try:
-        df_out.write_csv(args.output_tsv, separator="\t", quote_style="never")
-        print(f"Output table written to {args.output_tsv}")
+        df_out.write_parquet(args.output_parquet)
+        print(f"Output table written to {args.output_parquet}")
     except Exception as e:
-        print(f"Error writing output TSV: {e}", file=sys.stderr)
+        print(f"Error writing output Parquet: {e}", file=sys.stderr)
 
 
 if __name__ == "__main__":

@@ -28,7 +28,7 @@
       "url": "https://github.com/platforma-open/humanization-score",
       "docs": "https://docs.platforma.bio/guides/antibody-discovery/humanization-score/",
       "support": "mailto:support@milaboratories.com",
-      "description": "Score antibody sequences for humanness (placeholder)",
+      "description": "Score antibody sequences for humanness relative to natural human antibody repertoires",
       "longDescription": "file:../docs/description.md",
       "changelog": "file:../CHANGELOG.md",
       "tags": [

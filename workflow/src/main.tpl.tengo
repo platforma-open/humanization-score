@@ -76,7 +76,7 @@ wf.body(func(args) {
 	// Determine if we're working with single cell data
 	isSingleCell := datasetSpec.axesSpec[1].name == "pl7.app/vdj/scClonotypeKey"
 
-	seqTableBuilder := pFrames.tsvFileBuilder()
+	seqTableBuilder := pFrames.parquetFileBuilder()
 	seqTableBuilder.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
 
 	// Determine the primary assembling feature (e.g., CDR3)
@@ -188,10 +188,13 @@ wf.body(func(args) {
 	seqTable := seqTableBuilder.build()
 
 	liabilitiesResultCalc := render.create(calculateHumannessTpl, {
-		table: seqTable,
-		mapping: hasAnnotations ? annotations[0].spec.annotations["pl7.app/sequence/annotation/mapping"] : undefined,
-		numberingSchema: numberingSchema,
-		mem: args.mem
+		table: seqTable
+	}, {
+		// mem only affects resource allocation, not the result, so pass it as a
+		// meta input to avoid re-executing the template when memory changes.
+		metaInputs: {
+			mem: args.mem
+		}
 	})
 
 	liabilitiesResult := liabilitiesResultCalc.output("result", 24 * 60 * 60 * 1000)
@@ -200,13 +203,18 @@ wf.body(func(args) {
 		liabilitiesTable: liabilitiesResult,
 		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
-		mem: args.mem,
 		params: smart.createJsonResource({
 			datasetSpec: datasetSpec,
 			isSingleCell: isSingleCell,
 			coveredFeatures: features,
 			hasAnnotations: hasAnnotations
 		})
+	}, {
+		// mem only affects resource allocation, not the result, so pass it as a
+		// meta input to avoid re-executing the template when memory changes.
+		metaInputs: {
+			mem: args.mem
+		}
 	})
 
 	outputLiabilities := processResult.output("outputLiabilities", 24 * 60 * 60 * 1000)

@@ -32,15 +32,21 @@ LLAMA_VHH = (
 
 
 def run_main(tmp_path: Path, data_path: Path | None = None) -> pl.DataFrame:
-    out = tmp_path / "out.tsv"
-    argv = ["main.py", str(data_path or DATA), str(out)]
+    # Fixtures are kept as human-readable TSV; the script now consumes Parquet,
+    # so convert the fixture to a Parquet input before invoking the CLI.
+    src = pl.read_csv(data_path or DATA, separator="\t")
+    inp = tmp_path / "in.parquet"
+    src.write_parquet(inp)
+
+    out = tmp_path / "out.parquet"
+    argv = ["main.py", str(inp), str(out)]
     original = sys.argv
     sys.argv = argv
     try:
         m.main()
     finally:
         sys.argv = original
-    return pl.read_csv(out, separator="\t")
+    return pl.read_parquet(out)
 
 
 # ---------- Unit-level tests on the humanness() function ----------
