@@ -1,4 +1,7 @@
+import type { GraphMakerState } from '@milaboratories/graph-maker';
 import type {
+  PColumnIdAndSpec,
+  PFrameHandle,
   PlDataTableStateV2,
   PlRef,
 } from '@platforma-sdk/model';
@@ -6,9 +9,9 @@ import {
   ArrayColumnProvider,
   BlockModelV3,
   DataModelBuilder,
+  createPFrameForGraphs,
   createPlDataTableStateV2,
   createPlDataTableV3,
-  plRefsEqual,
 } from '@platforma-sdk/model';
 export type * from '@milaboratories/helpers';
 
@@ -20,6 +23,8 @@ type OldArgs = {
 
 type OldUiState = {
   tableState: PlDataTableStateV2;
+  graphStateHistogram?: GraphMakerState;
+  graphStateBoxplot?: GraphMakerState;
 };
 
 export type BlockData = {
@@ -27,7 +32,29 @@ export type BlockData = {
   inputAnchor?: PlRef;
   mem?: number;
   tableState: PlDataTableStateV2;
+  // Distribution of the per-clonotype humanness score across the whole dataset.
+  graphStateHistogram: GraphMakerState;
+  // Per-sample distribution of humanness (box/violin), grouped by sampleId.
+  graphStateBoxplot: GraphMakerState;
 };
+
+// Humanness score column name emitted by `clonotype-process.tpl.tengo`.
+export const HUMANNESS_SCORE_COLUMN = 'pl7.app/humannessScore';
+
+export const defaultGraphStateHistogram = (): GraphMakerState => ({
+  title: 'Humanness Score Distribution',
+  template: 'bins',
+  currentTab: null,
+  axesSettings: {
+    other: { binsCount: 20 },
+  },
+});
+
+export const defaultGraphStateBoxplot = (): GraphMakerState => ({
+  title: 'Humanness by Sample',
+  template: 'box',
+  currentTab: null,
+});
 
 // Selectors for the input dataset anchor — shared between `inputOptions`
 // (the dropdown) and `subtitle` (so the default label matches the dataset name).
@@ -50,10 +77,14 @@ const dataModel = new DataModelBuilder()
   .upgradeLegacy<OldArgs, OldUiState>(({ args, uiState }) => ({
     ...args,
     tableState: uiState.tableState,
+    graphStateHistogram: uiState.graphStateHistogram ?? defaultGraphStateHistogram(),
+    graphStateBoxplot: uiState.graphStateBoxplot ?? defaultGraphStateBoxplot(),
   }))
   .init(() => ({
     customBlockLabel: '',
     tableState: createPlDataTableStateV2(),
+    graphStateHistogram: defaultGraphStateHistogram(),
+    graphStateBoxplot: defaultGraphStateBoxplot(),
   }));
 
 export const platforma = BlockModelV3.create(dataModel)
@@ -87,26 +118,87 @@ export const platforma = BlockModelV3.create(dataModel)
     });
   })
 
+  // --- Score distribution (histogram) ---------------------------------------
+  // One row per clonotype, so the histogram counts UNIQUE clonotypes by humanness
+  // score — it is deliberately NOT weighted by clonotype abundance. The question it
+  // answers is "how many distinct candidates sit below/above a humanness level"
+  // (i.e. how much humanization work is there), not "how human is the repertoire by
+  // read mass". No human-like threshold line is drawn: this score is a 9-mer
+  // fraction rescaled to 0..100, not a cutoff validated against therapeutic mAbs.
+  .outputWithStatus('histogramPf', (ctx): PFrameHandle | undefined => {
+    const pCols = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
+    if (pCols === undefined) return undefined;
+    return createPFrameForGraphs(ctx, pCols);
+  })
+
+  .output('histogramPfPcols', (ctx): PColumnIdAndSpec[] | undefined => {
+    const pCols = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
+    if (pCols === undefined || pCols.length === 0) return undefined;
+    return pCols.map((c) => ({ columnId: c.id, spec: c.spec }));
+  })
+
+  // --- Per-sample distribution (box / violin) --------------------------------
+  // The humanness column is keyed by clonotypeKey only (sample-agnostic). To get
+  // a per-sample view we join it with the input dataset's primary abundance
+  // column, which carries the [sampleId, clonotypeKey] axes. graph-maker joins on
+  // the shared clonotypeKey axis, so each (sample, clonotype) pair contributes the
+  // clonotype's score — grouping by sampleId then yields a distribution per sample.
+  // This is a box/violin (median + spread + tails) on purpose, not a per-sample
+  // mean: the spread is exactly what a single mean would hide.
+  // Degrades gracefully: if the dataset has no primary-abundance column the join
+  // adds nothing, the sampleId axis is absent, and the page simply can't preselect
+  // a grouping (the chart still opens). VDJ datasets almost always carry abundance.
+  .outputWithStatus('perSamplePf', (ctx): PFrameHandle | undefined => {
+    const humanness = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
+    if (humanness === undefined) return undefined;
+
+    const ref = ctx.data.inputAnchor;
+    if (ref === undefined) return undefined;
+
+    const abundance = ctx.resultPool.getAnchoredPColumns({ main: ref }, [{
+      axes: [{ anchor: 'main', idx: 0 }, { anchor: 'main', idx: 1 }],
+      annotations: {
+        'pl7.app/isAbundance': 'true',
+        'pl7.app/abundance/normalized': 'false',
+        'pl7.app/abundance/isPrimary': 'true',
+      },
+    }]);
+
+    return createPFrameForGraphs(ctx, [...humanness, ...(abundance ?? [])]);
+  })
+
+  .output('perSamplePfPcols', (ctx): PColumnIdAndSpec[] | undefined => {
+    const humanness = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
+    if (humanness === undefined || humanness.length === 0) return undefined;
+
+    const ref = ctx.data.inputAnchor;
+    if (ref === undefined) return undefined;
+
+    const abundance = ctx.resultPool.getAnchoredPColumns({ main: ref }, [{
+      axes: [{ anchor: 'main', idx: 0 }, { anchor: 'main', idx: 1 }],
+      annotations: {
+        'pl7.app/isAbundance': 'true',
+        'pl7.app/abundance/normalized': 'false',
+        'pl7.app/abundance/isPrimary': 'true',
+      },
+    }]);
+
+    return [...humanness, ...(abundance ?? [])].map((c) => ({ columnId: c.id, spec: c.spec }));
+  })
+
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
 
   .title(() => 'Humanization Score')
 
   .subtitle((ctx) => {
-    // An explicit, user-set label always wins.
     if (ctx.data.customBlockLabel) return ctx.data.customBlockLabel;
-    // Otherwise default to the selected input dataset's name, so the subtitle
-    // carries context instead of duplicating the "Humanization Score" title.
-    if (ctx.data.inputAnchor) {
-      const selected = ctx.resultPool
-        .getOptions(inputSelectors)
-        ?.find((opt) => plRefsEqual(opt.ref, ctx.data.inputAnchor!, true));
-      if (selected?.label) return selected.label;
-    }
     return 'Humanization Score';
   })
 
   .sections((_) => [
     { type: 'link', href: '/', label: 'Table' },
+    { type: 'link', href: '/histogram', label: 'Score Distribution' },
+    { type: 'link', href: '/by-sample', label: 'By Sample' },
   ])
 
   .done();

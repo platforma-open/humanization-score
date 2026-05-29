@@ -19,6 +19,7 @@ catalog:
   '@platforma-sdk/test': 1.77.15
   '@milaboratories/helpers': 1.14.2
   '@milaboratories/strings': 0.1.2
+  '@milaboratories/graph-maker': 1.4.3
 
   # Block-specific dependencies
   # Custom Python runenv bundling promb + its offline OASis/SwissProt databases.

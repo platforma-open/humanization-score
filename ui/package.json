@@ -16,6 +16,7 @@
     "@platforma-sdk/ui-vue": "catalog:",
     "@platforma-sdk/model": "catalog:",
     "@milaboratories/strings": "catalog:",
+    "@milaboratories/graph-maker": "catalog:",
     "vue": "catalog:"
   },
   "devDependencies": {
