@@ -1,5 +1,12 @@
 # @platforma-open/milaboratories.humanization-score.ui
 
+## 0.3.2
+
+### Patch Changes
+
+- Updated dependencies [ac1bb58]
+  - @platforma-open/milaboratories.humanization-score.model@0.3.2
+
 ## 0.3.1
 
 ### Patch Changes
