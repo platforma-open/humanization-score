@@ -6,10 +6,8 @@ import type {
   PlRef,
 } from '@platforma-sdk/model';
 import {
-  ArrayColumnProvider,
   BlockModelV3,
-  DataModelBuilder,
-  createPFrameForGraphs,
+  DataModelBuilder, createPFrameForGraphs,
   createPlDataTableStateV2,
   createPlDataTableV3,
 } from '@platforma-sdk/model';
@@ -104,21 +102,21 @@ export const platforma = BlockModelV3.create(dataModel)
     if (pCols === undefined) {
       return undefined;
     }
+
+    const anchorCol = pCols[0];
+    if (anchorCol === undefined) {
+      return undefined;
+    }
+
     return createPlDataTableV3(ctx, {
       tableState: ctx.data.tableState,
-      columns: new ArrayColumnProvider(pCols)
-        .getAllColumns()
-        .map((column) => ({ column, isPrimary: true })),
+      columns: {
+        anchors: { main: anchorCol.spec },
+        selector: { mode: 'enrichment' },
+      },
     });
   })
 
-  // --- Score distribution (histogram) ---------------------------------------
-  // One row per clonotype, so the histogram counts UNIQUE clonotypes by humanness
-  // score — it is deliberately NOT weighted by clonotype abundance. The question it
-  // answers is "how many distinct candidates sit below/above a humanness level"
-  // (i.e. how much humanization work is there), not "how human is the repertoire by
-  // read mass". No human-like threshold line is drawn: this score is a 9-mer
-  // fraction rescaled to 0..100, not a cutoff validated against therapeutic mAbs.
   .outputWithStatus('histogramPf', (ctx): PFrameHandle | undefined => {
     const pCols = ctx.outputs?.resolve('outputHumanness')?.getPColumns();
     if (pCols === undefined) return undefined;
