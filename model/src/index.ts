@@ -34,7 +34,17 @@ export type BlockData = {
 };
 
 // Humanness score column name emitted by `clonotype-process.tpl.tengo`.
+// All per-chain score columns share this name; single-cell chains are
+// distinguished only by the `CHAIN_DOMAIN` domain entry below.
 export const HUMANNESS_SCORE_COLUMN = 'pl7.app/humannessScore';
+
+// Domain key carried by single-cell per-chain score columns. Value is the
+// chain TYPE: 'A' = Heavy, 'B' = Light (matches the upstream producer's
+// `pl7.app/vdj/scClonotypeChain` convention). Bulk columns have no
+// scClonotypeChain domain key (they still carry pl7.app/blockId).
+export const CHAIN_DOMAIN = 'pl7.app/vdj/scClonotypeChain';
+export const CHAIN_HEAVY = 'A';
+export const CHAIN_LIGHT = 'B';
 
 export const defaultGraphStateHistogram = (): GraphMakerState => ({
   title: 'Humanness Score Distribution',
@@ -52,19 +62,36 @@ export const defaultGraphStateHistogram = (): GraphMakerState => ({
 
 // Selectors for the input dataset anchor — shared between `inputOptions`
 // (the dropdown) and `subtitle` (so the default label matches the dataset name).
-const inputSelectors = [{
-  axes: [
-    { name: 'pl7.app/sampleId' },
-    { name: 'pl7.app/vdj/clonotypeKey' },
-  ],
-  annotations: { 'pl7.app/isAnchor': 'true' },
-}, {
-  axes: [
-    { name: 'pl7.app/sampleId' },
-    { name: 'pl7.app/vdj/scClonotypeKey' },
-  ],
-  annotations: { 'pl7.app/isAnchor': 'true' },
-}];
+//
+// Humanness scoring applies to ANTIBODIES only, so we offer Ig datasets only:
+//   - bulk: the clonotypeKey axis carries `pl7.app/vdj/chain` set to the
+//           producer's chainInfos KEYS — IG = {IGHeavy, IGLight} (NOT the mixcr
+//           filter values IGH/IGK/IGL). Axis-domain matching can't express a
+//           value set, so we emit one selector per allowed chain (OR-ed).
+//   - single-cell: the scClonotypeKey axis carries `pl7.app/vdj/receptor == 'IG'`.
+// TCR datasets (TR* / TCRAB / TCRGD) are therefore never offered. The workflow
+// guard (main.tpl.tengo) is the backstop if a TCR dataset is forced.
+//
+// NOTE: we cannot express "has a VDJRegionInFrame sequence column" here because
+// that lives on the sequence columns, not the anchor axis. CDR3-assembled
+// datasets are rejected by the workflow guard (hard-fail ll.panic) instead.
+const BULK_CHAINS = ['IGHeavy', 'IGLight'];
+const inputSelectors = [
+  ...BULK_CHAINS.map((chain) => ({
+    axes: [
+      { name: 'pl7.app/sampleId' },
+      { name: 'pl7.app/vdj/clonotypeKey', domain: { 'pl7.app/vdj/chain': chain } },
+    ],
+    annotations: { 'pl7.app/isAnchor': 'true' },
+  })),
+  {
+    axes: [
+      { name: 'pl7.app/sampleId' },
+      { name: 'pl7.app/vdj/scClonotypeKey', domain: { 'pl7.app/vdj/receptor': 'IG' } },
+    ],
+    annotations: { 'pl7.app/isAnchor': 'true' },
+  },
+];
 
 const dataModel = new DataModelBuilder()
   .from<BlockData>('v1')
@@ -103,7 +130,16 @@ export const platforma = BlockModelV3.create(dataModel)
       return undefined;
     }
 
-    const anchorCol = pCols[0];
+    // Phase 4 now emits up to two per-chain score columns (Heavy 'A' / Light 'B')
+    // that share `HUMANNESS_SCORE_COLUMN` and are distinguished by `CHAIN_DOMAIN`.
+    // `pCols[0]` is non-deterministic across runs, so pick the anchor explicitly:
+    // prefer the Heavy column, else the first column (bulk has a single column
+    // with no chain domain). The enrichment selector then resolves the remaining
+    // per-chain columns against the shared clonotype-key axis carried by this
+    // anchor, joining Heavy + Light into one row-per-clonotype table.
+    const anchorCol
+      = pCols.find((c) => c.spec.domain?.[CHAIN_DOMAIN] === CHAIN_HEAVY)
+        ?? pCols[0];
     if (anchorCol === undefined) {
       return undefined;
     }
