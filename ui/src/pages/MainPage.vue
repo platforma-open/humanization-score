@@ -4,6 +4,7 @@ import type { PlRef } from '@platforma-sdk/model';
 import {
   PlAccordionSection,
   PlAgDataTableV2,
+  PlAlert,
   PlBlockPage,
   PlBtnGhost,
   PlDropdownRef,
@@ -12,7 +13,7 @@ import {
   PlSlideModal,
   usePlDataTableSettingsV2,
 } from '@platforma-sdk/ui-vue';
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useApp } from '../app';
 
 const app = useApp();
@@ -25,6 +26,11 @@ function setInput(inputRef?: PlRef) {
 const tableSettings = usePlDataTableSettingsV2({
   model: () => app.model.outputs.pt,
 });
+
+// Non-fatal warnings emitted by the workflow (e.g. "no full variable region
+// (VDJRegion) available" when the dataset was assembled by CDR3). The run still
+// completes with a null score; we surface the reason here instead of failing.
+const warnings = computed<string[]>(() => app.model.outputs.warnings ?? []);
 
 const settingsIsShown = ref(app.model.data.inputAnchor === undefined);
 
@@ -54,6 +60,14 @@ watch(
         </template>
       </PlBtnGhost>
     </template>
+    <PlAlert
+      v-for="(message, i) in warnings"
+      :key="i"
+      type="warn"
+      label="Humanness score not computed"
+    >
+      {{ message }}
+    </PlAlert>
     <PlAgDataTableV2
       v-model="app.model.data.tableState"
       :settings="tableSettings"

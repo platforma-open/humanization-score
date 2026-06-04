@@ -70,11 +70,17 @@ export const defaultGraphStateHistogram = (): GraphMakerState => ({
 //           value set, so we emit one selector per allowed chain (OR-ed).
 //   - single-cell: the scClonotypeKey axis carries `pl7.app/vdj/receptor == 'IG'`.
 // TCR datasets (TR* / TCRAB / TCRGD) are therefore never offered. The workflow
-// guard (main.tpl.tengo) is the backstop if a TCR dataset is forced.
+// guard (main.tpl.tengo) is the backstop (hard-fail ll.panic) if a TCR dataset
+// is forced — TCR is a hard reject per spec R5.
 //
 // NOTE: we cannot express "has a VDJRegionInFrame sequence column" here because
 // that lives on the sequence columns, not the anchor axis. CDR3-assembled
-// datasets are rejected by the workflow guard (hard-fail ll.panic) instead.
+// (no full VDJRegion) Ig datasets are therefore still OFFERED by these
+// selectors. They are NO LONGER hard-rejected: per spec §3a/§7 such datasets are
+// now ACCEPTED and produce a NULL/empty humanness result plus a non-fatal
+// warning (instructing the user to re-run clonotyping assembled by VDJRegion);
+// the run completes without crashing. Only TCR input is hard-rejected. The
+// selectors stay Ig-only and never filtered on VDJRegion availability.
 const BULK_CHAINS = ['IGHeavy', 'IGLight'];
 const inputSelectors = [
   ...BULK_CHAINS.map((chain) => ({
@@ -164,6 +170,13 @@ export const platforma = BlockModelV3.create(dataModel)
     if (pCols === undefined || pCols.length === 0) return undefined;
     return pCols.map((c) => ({ columnId: c.id, spec: c.spec }));
   })
+
+  // Non-fatal warnings emitted by the workflow (e.g. "no full variable region
+  // available" for CDR3-assembled datasets). Empty array when scoring succeeded.
+  // The UI renders these as a non-blocking banner; the run still completes.
+  .output('warnings', (ctx) =>
+    ctx.outputs?.resolve('warnings')?.getDataAsJson<string[]>() ?? [],
+  )
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
 

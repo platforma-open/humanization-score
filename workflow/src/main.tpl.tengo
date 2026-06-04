@@ -9,8 +9,16 @@ math := import("math")
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
 processTpl := assets.importTemplate(":clonotype-process")
 
-// Hard-fail messages (kept verbatim, see the migration contract).
-CDR3_ASSEMBLED_MESSAGE := "Humanness scoring requires sequences assembled over the full variable region (VDJRegion); this dataset was assembled by CDR3. Re-run clonotyping assembled by VDJRegion."
+// Non-fatal warning surfaced when no full variable region is available. Per the
+// spec (correct-behavior §3a/§7) the absence of a full variable domain
+// (e.g. a CDR3-assembled dataset, or only partial features like CDR1_TO_FR4 /
+// FR2_TO_FR4 / CDR2_TO_FR4) is NOT an error: the score is honestly "not
+// computable" (null), the run completes, and we explain why via the `warnings`
+// output. This must NOT crash the run.
+NO_FULL_DOMAIN_WARNING := "Humanness scoring requires sequences assembled over the full variable region (VDJRegion); no full variable region (VDJRegion) available — this dataset was assembled by CDR3. Re-run clonotyping assembled by VDJRegion to obtain humanness scores."
+
+// TCR is a HARD reject (spec R5): the block does not apply to T-cell receptors,
+// whose repertoire (OAS) contains no TCR data. This stays a fatal ll.panic.
 TCR_MESSAGE := "Humanness scoring applies to antibodies only; TCR input is not supported."
 
 // Prepare phase of the workflow - collects and sets up required data
@@ -121,16 +129,25 @@ wf.body(func(args) {
 		}
 	}
 
-	// CDR3-assembled dataset (no VDJRegionInFrame column present at all) =>
-	// hard-fail per the contract; never score CDR3.
+	// No full variable region available (no VDJRegionInFrame column present at
+	// all) => this is the legitimate "unscoreable" path, NOT an error. It covers
+	// CDR3-assembled datasets and partial-domain features (CDR1_TO_FR4 /
+	// FR2_TO_FR4 / CDR2_TO_FR4), all of which the prepare query already excludes
+	// (it matches feature == "VDJRegionInFrame" only) and which therefore yield
+	// zero units. Instead of panicking we surface a non-fatal warning and emit an
+	// empty result; the run completes and the score is honestly null. See spec
+	// correct-behavior §3a/§7. (TCR remains a hard reject above, per R5.)
+	warnings := []
 	if len(units) == 0 {
-		ll.panic(CDR3_ASSEMBLED_MESSAGE)
+		warnings += [NO_FULL_DOMAIN_WARNING]
 	}
 
 	// Run the scorer once per unit, then hand all scored tables (plus their
 	// chain metadata) to a single process template that imports them into
 	// per-chain PColumns. We pass the units as a map resource keyed by unit id
-	// so the resource handles survive the render boundary.
+	// so the resource handles survive the render boundary. When units is empty
+	// (no full variable region), the map is empty and the process template's
+	// for-loop produces empty pFrames — a valid empty result, no crash.
 	unitsBuilder := smart.mapBuilder()
 	for unit in units {
 		humannessResultCalc := render.create(calculateHumannessTpl, {
@@ -179,7 +196,12 @@ wf.body(func(args) {
 
 	return {
 		outputs: {
-			outputHumanness: outputHumanness
+			outputHumanness: outputHumanness,
+			// Non-fatal warnings (JSON array of strings; empty when scoring
+			// succeeded). The workflow-tengo SDK has no dedicated notification
+			// channel, so a regular JSON output resource is the idiomatic way to
+			// surface a non-fatal message; the model/UI reads it as a banner.
+			warnings: smart.createJsonResource(warnings)
 		},
 		exports: {
 			exportPframe: exportPframe

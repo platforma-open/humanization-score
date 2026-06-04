@@ -42,10 +42,14 @@ What the fix does:
   the histogram defaults to the Heavy chain.
 - **TCR datasets are now rejected.** They are no longer offered in the input
   selector and the workflow hard-fails on TCR input (bulk chains other than
-  IGH/IGK/IGL, single-cell receptor other than `IG`). Humanness scoring applies
-  to antibodies only.
-- **CDR3-assembled datasets now hard-fail** with a clear message: such datasets
-  have no full variable region available, so scoring is impossible and the user
-  is instructed to re-run clonotyping assembled by VDJRegion. Enforced both in
-  the model selectors and in the workflow guard.
+  `IGHeavy`/`IGLight`, single-cell receptor other than `IG`). Humanness scoring
+  applies to antibodies only.
+- **CDR3-assembled datasets (no full variable region) now yield a null
+  humanness score with a non-fatal warning.** Such datasets have no full
+  variable region available, so the score is honestly not computable: the block
+  emits a null/empty humanness result and surfaces a warning instructing the
+  user to re-run clonotyping assembled by VDJRegion. The run completes normally
+  (no crash, no hard-fail). These datasets are still offered in the input
+  selector (which stays Ig-only); VDJRegion availability cannot be detected at
+  the anchor level.
 - The dead scFv code path was removed.
