@@ -33,6 +33,11 @@ import polars as pl
 # than this cannot produce a single 9-mer and are unscoreable.
 _MIN_WINDOW = 9
 
+# The 20 standard amino acids plus X (ambiguous). Upstream emits uppercase
+# amino-acid sequences; any other character (underscore, "*", "-", digits)
+# marks an NA/sentinel value (e.g. "region_not_covered") that must not be scored.
+_AA_ALPHABET = frozenset("ACDEFGHIKLMNPQRSTVWYX")
+
 # Key columns that are carried through to the output unchanged. Anything matching
 # is never treated as the sequence to score.
 _KEY_COLUMNS = ("clonotypeKey", "scClonotypeKey")
@@ -52,8 +57,16 @@ def humanness(seq: str | None) -> float | None:
     Computes the fraction of 9-mer windows in `seq` that appear in the
     promb `human-oas` peptide set (curated human antibody repertoires)
     and rescales 0..1 -> 0..100. Higher = more human.
+
+    Returns None for anything that is not a real amino-acid string: too short
+    to window, or containing non-amino-acid characters. The latter guards the
+    upstream NA/sentinel markers (e.g. "region_not_covered" for uncovered
+    regions, stop-codon "*", gap "-"), which arrive as literal column values
+    and must NOT be scored as if they were sequences.
     """
     if not isinstance(seq, str) or len(seq) < _MIN_WINDOW:
+        return None
+    if not set(seq) <= _AA_ALPHABET:
         return None
     try:
         frac = _get_db().compute_peptide_content(seq)

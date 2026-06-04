@@ -102,6 +102,16 @@ def test_humanness_returns_none_for_short_or_empty():
     assert s is None or (0.0 <= s <= 100.0)
 
 
+def test_humanness_returns_none_for_na_sentinels():
+    """Upstream NA/sentinel markers arrive as literal column values and must
+    NOT be scored as sequences (they are long enough to pass the window guard).
+    """
+    assert m.humanness("region_not_covered") is None  # producer's naRegex marker
+    assert m.humanness("EVQLVESGG*GLVQPGG") is None  # stop-codon
+    assert m.humanness("EVQLV-ESGGGLVQ") is None  # gap
+    assert m.humanness("EVQLVESGG2GLVQPGG") is None  # stray digit
+
+
 # ---------- Contract: exactly one sequence column ----------
 
 
