@@ -105,8 +105,9 @@ peptide-level). Per-residue humanness comes from **Sapiens** or **AntPack**.
 > per-position log-probability array, *"enables easy identification of low-probability
 > residues."*
 
-**Implication:** the per-residue deliverable needs a different tool than the current scorer — it
-is out of scope for the score itself (see D4 / migration plan Phase 7).
+**Implication:** the per-residue deliverable is out of scope for the score itself and tracked
+separately (see D4 / [`TODO.md`](./TODO.md)). Note promb does ship an *approximate* per-residue
+method (`compute_positional_likelihood`) worth evaluating before adopting a new tool.
 
 ---
 
@@ -149,15 +150,19 @@ These follow directly from §2 — there is nothing to decide:
 
 ### 3b. Genuinely open decisions (need an owner)
 
+These are deferred out of the current milestone and tracked in detail (problem, options,
+recommendation, next step) in [`TODO.md`](./TODO.md). Summary:
+
 | ID | Decision | What the research implies | Owner | Status |
 |----|----------|---------------------------|-------|--------|
-| **D4** | Is the per-residue "non-human positions" deliverable (R7) in scope now, and via Sapiens or AntPack? | R7 only tells us promb/OASis can't do it; scope/timing/tool choice is a product call. | Product + reviewer | **PENDING** |
+| **D4** | Is the per-residue "non-human positions" deliverable (R7) in scope now, and via promb's own `compute_positional_likelihood`, Sapiens, or AntPack? | R7 only tells us the OASis *score* is peptide-level; scope/timing/tool choice is a product call. | Product + reviewer | **PENDING** |
 | **D5** | Which number do we expose: raw **OASis identity** (what promb gives, our current `fraction×100`) or the calibrated **OASis percentile** (BioPhi's interpretable "5–7% murine / 80% human")? | The **percentile** is the meaningful, comparable metric — but it requires BioPhi's 544-mAb calibration; promb alone cannot produce it. So this is really "stay on promb (identity, label honestly) **vs** adopt BioPhi (percentile)". | Product + eng | **PENDING** |
-| **D6-impl** | Given R2 mandates a per-chain reference, do we fix promb (chain-split `human-oas`) or move to full BioPhi? | R2 makes per-chain *required*; the only open part is the engineering route. Tied to D5 (BioPhi gives both percentile **and** per-chain split). | Eng | **PENDING** |
+| **D6** | Given R2 mandates a per-chain reference, do we fix promb (chain-split `human-oas`) or move to full BioPhi? | R2 makes per-chain *required*; the only open part is the engineering route. Tied to D5 (BioPhi gives both percentile **and** per-chain split). | Eng | **PENDING** |
 
 > Net: D5 and D6 point the same way — **promb is a lightweight approximation; faithful OASis
 > humanness (per-chain reference + interpretable percentile) is BioPhi.** The real decision is
 > whether the promb approximation is acceptable for this milestone or we adopt BioPhi.
+> See [`TODO.md`](./TODO.md) for the full breakdown of D4/D5/D6.
 
 ---
 
@@ -195,10 +200,13 @@ These are gaps between **our promb-based implementation** and the **authoritativ
 definition. They do not change the requirements (§2) but matter for interpreting output:
 
 - **C1 (scale, = D5):** we emit raw OASis *identity* × 100, not the OASis *percentile*. Do not
-  compare our numbers to published "% human" percentiles without converting.
-- **C2 (chain reference, = D6):** promb's bundled `human-oas` may not split the reference by
-  chain type the way BioPhi does (R2). Light-chain scores may be less faithful. Verify the DB
-  contents.
+  compare our numbers to published "% human" percentiles without converting. Tracked in
+  [`TODO.md`](./TODO.md) (D5).
+- **C2 (chain reference, = D6):** **confirmed** — promb's bundled `human-oas` is a single pooled
+  set (`resources/OASis_9mers_v1_10perc_subjects.txt.gz`, ~5.7M 9-mers) and
+  `compute_peptide_content(seq)` takes no chain-type argument, so it does **not** split the
+  reference by chain type the way BioPhi does (R2). Light-chain scores carry a systematic but
+  unmeasured bias. Tracked in [`TODO.md`](./TODO.md) (D6), including a cheap step to quantify it.
 - **C3 (min length):** the 9-residue floor (R6) is inferred from the method, **not** documented
   in promb/BioPhi. Verify directly against the code; our implementation already nulls `<9 aa`.
 - **C4 (threshold):** OASis identity depends on a tunable per-subject prevalence threshold
