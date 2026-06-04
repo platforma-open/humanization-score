@@ -9,6 +9,10 @@ math := import("math")
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
 processTpl := assets.importTemplate(":clonotype-process")
 
+// Hard-fail messages (kept verbatim, see the migration contract).
+CDR3_ASSEMBLED_MESSAGE := "Humanness scoring requires sequences assembled over the full variable region (VDJRegion); this dataset was assembled by CDR3. Re-run clonotyping assembled by VDJRegion."
+TCR_MESSAGE := "Humanness scoring applies to antibodies only; TCR input is not supported."
+
 // Prepare phase of the workflow - collects and sets up required data
 wf.prepare(func(args) {
 
@@ -16,42 +20,24 @@ wf.prepare(func(args) {
 	bundleBuilder.ignoreMissingDomains()
 	bundleBuilder.addAnchor("main", args.inputAnchor)
 
-	// Collect all amino acid sequences from the input data
-	bundleBuilder.addMulti({
-		axes: [{ anchor: "main", idx: 1 }],
-		annotations: {
-			"pl7.app/vdj/isAssemblingFeature": "true"
-		},
-		domain: {
-			"pl7.app/alphabet": "aminoacid"
-			}
-		}, "sequences")
-
-	bundleBuilder.addMulti({
-		axes: [{ anchor: "main", idx: 1 }],
-		name: "pl7.app/vdj/sequence/annotation",
-		annotations: {
-			"pl7.app/sequence/isAnnotation": "true"
-		},
-		domain: {
-			"pl7.app/alphabet": "aminoacid",
-          	"pl7.app/sequence/annotation/type": "CDRs"
-		}
-	}, "annotations")
-
+	// Collect the full variable-domain amino-acid column(s) only - this is the
+	// single scoring unit (FR1..FR4 already assembled). For the amino-acid
+	// alphabet the producer rewrites VDJRegion -> VDJRegionInFrame, so we must
+	// match VDJRegionInFrame here (plain VDJRegion is the nucleotide column).
+	// We never reconstruct from FR/CDR fragments.
 	bundleBuilder.addMulti({
 		axes: [{ anchor: "main", idx: 1 }],
 		name: "pl7.app/vdj/sequence",
 		domain: {
-			"pl7.app/alphabet": "aminoacid"
+			"pl7.app/alphabet": "aminoacid",
+			"pl7.app/vdj/feature": "VDJRegionInFrame"
 		}
-	}, "additionalSequences")
+	}, "vdjRegions")
 
-		return {
-			columns: bundleBuilder.build()
-		}
+	return {
+		columns: bundleBuilder.build()
 	}
-)
+})
 
 wf.body(func(args) {
 
@@ -65,120 +51,120 @@ wf.body(func(args) {
 		baseMemGiB = args.mem
 	}
 
-	sequences := columnsWithSequences.getColumns("sequences")
-	annotations := columnsWithSequences.getColumns("annotations")
-	additionalSequences := columnsWithSequences.getColumns("additionalSequences")
-	// Determine if we're working with single cell data
+	// Determine if we're working with single cell data.
 	isSingleCell := datasetSpec.axesSpec[1].name == "pl7.app/vdj/scClonotypeKey"
 
-	seqTableBuilder := pFrames.parquetFileBuilder()
-	seqTableBuilder.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
-
-	if len(sequences) == 0 {
-		ll.panic("No sequences found in the input data.")
+	// The clonotype-key axis carries the Ig/TCR domain. Reject TCR fast.
+	keyAxisSpec := datasetSpec.axesSpec[1]
+	if isSingleCell {
+		receptor := keyAxisSpec.domain["pl7.app/vdj/receptor"]
+		if receptor != "IG" {
+			ll.panic(TCR_MESSAGE)
+		}
+	} else {
+		// The producer sets this axis-domain to the chainInfos KEYS, not the
+		// mixcr filter values: IG = "IGHeavy"/"IGLight", TCR = "TCRAlpha"/
+		// "TCRBeta"/"TCRGamma"/"TCRDelta". Accept only the IG keys.
+		chain := keyAxisSpec.domain["pl7.app/vdj/chain"]
+		if !(chain == "IGHeavy" || chain == "IGLight") {
+			ll.panic(TCR_MESSAGE)
+		}
 	}
 
-	hasAnnotations := len(annotations) > 0
+	vdjRegions := columnsWithSequences.getColumns("vdjRegions")
 
-	// Track which features are present, to avoid emitting duplicate
-	// sequence-table headers below.
-	coveredFeatures := {}
+	// Build one single-sequence scoring unit per chain type. Each unit's table
+	// holds the clonotype-key axis + exactly ONE "VDJRegion aa" column, which is
+	// what the Python scorer requires (exactly one sequence column per table).
+	convMemGiB := string(int(math.max(16, baseMemGiB / 4))) + "GiB"
+
+	buildUnitTable := func(colKey) {
+		b := pFrames.parquetFileBuilder()
+		b.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
+		b.add(columnsWithSequences.getColumn(colKey), {header: "VDJRegion aa"})
+		b.mem(convMemGiB)
+		b.cpu(1)
+		return b.build()
+	}
+
+	units := []
 
 	if isSingleCell {
-		// Single-cell data handling
-		// Add primary chain sequences
-		for seq_entry in sequences {
-			if seq_entry.spec.name == "pl7.app/vdj/scFv-sequence" {
-				for additionalSeq in additionalSequences {
-					if additionalSeq.spec.domain["pl7.app/vdj/scClonotypeChain/index"] == "primary" {
-						for fr in ["CDR1", "CDR2", "CDR3", "FR1"] {
-							if additionalSeq.spec.domain["pl7.app/vdj/feature"] == fr {
-								chain := additionalSeq.spec.domain["pl7.app/vdj/scClonotypeChain"]
-								chainLabel := (chain == "A" ? "Heavy" : "Light")
-								seqTableBuilder.add(columnsWithSequences.getColumn(additionalSeq.key), {header: chainLabel + " " + fr + " aa"})
-								if coveredFeatures[fr] {
-									coveredFeatures[fr] += 1
-								} else {
-									coveredFeatures[fr] = 1
-								}
-							}
-						}
-					}
-				}
-			} else if seq_entry.spec.domain["pl7.app/vdj/scClonotypeChain/index"] == "primary" {
-				chain := seq_entry.spec.domain["pl7.app/vdj/scClonotypeChain"]
-				chainLabel := (chain == "A" ? "Heavy" : "Light")
-				seqTableBuilder.add(columnsWithSequences.getColumn(seq_entry.key), {header: chainLabel + " " + " sequence aa"})
+		// Score the PRIMARY-rank rearrangement of each chain type (A=Heavy,
+		// B=Light). Secondary-rank rows are CDR3-only by construction => they
+		// are filtered out here and thus produce null for that chain. The null
+		// rule keys on index == "secondary", never on Heavy-vs-Light.
+		for entry in vdjRegions {
+			idx := entry.spec.domain["pl7.app/vdj/scClonotypeChain/index"]
+			if idx != "primary" {
+				continue
 			}
+			chain := entry.spec.domain["pl7.app/vdj/scClonotypeChain"]
+			chainLabel := (chain == "A" ? "Heavy" : "Light")
+			units += [{
+				id: "humannessScore" + chain,
+				table: buildUnitTable(entry.key),
+				chain: chain,
+				chainLabel: chainLabel
+			}]
 		}
-		// Add primary chain annotations if they exist
-		if hasAnnotations {
-			for ann_entry in annotations {
-				if ann_entry.spec.domain["pl7.app/vdj/scClonotypeChain/index"] == "primary" {
-					chain := ann_entry.spec.domain["pl7.app/vdj/scClonotypeChain"]
-					chainLabel := (chain == "A" ? "Heavy" : "Light")
-					// Python script expects annotation columns to end with "annotations"
-					// and might derive prefix like "Heavy CDRs" or "Light CDRs"
-					seqTableBuilder.add(columnsWithSequences.getColumn(ann_entry.key), {header: chainLabel + " annotations"})
-				}
-			}
-		}
-	} else { // Bulk data handling
-		// Add the primary assembling feature sequence.
-		// Mark it in coveredFeatures so the additionalSequences loop below skips it.
-		// On imported data, CDR3 satisfies both the assembling-feature query (sequences)
-		// and the region query (additionalSequences), so without this guard the TSV
-		// builder would receive "CDR3 aa" twice and throw a duplicate-header error.
-		if len(sequences) > 0 {
-			if sequences[0].spec.domain["pl7.app/vdj/feature"] == "CDR3" {
-				seqTableBuilder.add(columnsWithSequences.getColumn(sequences[0].key), {header: "CDR3 aa"})
-				coveredFeatures["CDR3"] = 1
-			} else {
-				seqTableBuilder.add(columnsWithSequences.getColumn(sequences[0].key), {header: "sequence aa"})
-			}
-		}
-		// Add FR/CDR sequences from additionalSequences (bulk, no annotations)
-		for additionalSeq in additionalSequences {
-			for fr in ["CDR1", "CDR2", "CDR3", "FR1", "FR2", "FR3"] {
-				if additionalSeq.spec.domain["pl7.app/vdj/feature"] == fr && !coveredFeatures[fr] {
-					seqTableBuilder.add(columnsWithSequences.getColumn(additionalSeq.key), {header: fr + " aa"})
-					if coveredFeatures[fr] {
-						coveredFeatures[fr] += 1
-					} else {
-						coveredFeatures[fr] = 1
-					}
-				}
-			}
-		}
-		// Add annotations if they exist
-		if hasAnnotations {
-			// Python script expects annotation column to end with "annotations"
-			seqTableBuilder.add(columnsWithSequences.getColumn(annotations[0].key), {header: "Annotations"})
+	} else {
+		// Bulk / VHH: a single chain. Use the VDJRegionInFrame aa column directly
+		// (FR1..FR4, FR4 included). No fragment gluing, no CDR3 fallback.
+		if len(vdjRegions) > 0 {
+			units += [{
+				id: "humannessScore",
+				table: buildUnitTable(vdjRegions[0].key),
+				chain: undefined,
+				chainLabel: undefined
+			}]
 		}
 	}
 
-	seqTableBuilder.mem(string(int(math.max(16, baseMemGiB / 4))) + "GiB")
-	seqTableBuilder.cpu(1)
-	seqTable := seqTableBuilder.build()
+	// CDR3-assembled dataset (no VDJRegionInFrame column present at all) =>
+	// hard-fail per the contract; never score CDR3.
+	if len(units) == 0 {
+		ll.panic(CDR3_ASSEMBLED_MESSAGE)
+	}
 
-	humannessResultCalc := render.create(calculateHumannessTpl, {
-		table: seqTable
-	}, {
-		// mem only affects resource allocation, not the result, so pass it as a
-		// meta input to avoid re-executing the template when memory changes.
-		metaInputs: {
-			mem: args.mem
+	// Run the scorer once per unit, then hand all scored tables (plus their
+	// chain metadata) to a single process template that imports them into
+	// per-chain PColumns. We pass the units as a map resource keyed by unit id
+	// so the resource handles survive the render boundary.
+	unitsBuilder := smart.mapBuilder()
+	for unit in units {
+		humannessResultCalc := render.create(calculateHumannessTpl, {
+			table: unit.table
+		}, {
+			// mem only affects resource allocation, not the result, so pass it as
+			// a meta input to avoid re-executing the template when memory changes.
+			metaInputs: {
+				mem: args.mem
+			}
+		})
+
+		humannessResult := humannessResultCalc.output("result", 24 * 60 * 60 * 1000)
+
+		// Only carry chain metadata for single-cell; bulk has a single chainless
+		// unit. Avoid undefined values in the map resource.
+		unitValue := {
+			humannessTable: humannessResult
 		}
-	})
-
-	humannessResult := humannessResultCalc.output("result", 24 * 60 * 60 * 1000)
+		if !is_undefined(unit.chain) {
+			unitValue.chain = unit.chain
+			unitValue.chainLabel = unit.chainLabel
+		}
+		unitsBuilder.add(unit.id, unitValue)
+	}
+	unitsResource := unitsBuilder.build()
 
 	processResult := render.create(processTpl, {
-		humannessTable: humannessResult,
+		units: unitsResource,
 		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
 		params: smart.createJsonResource({
-			datasetSpec: datasetSpec
+			datasetSpec: datasetSpec,
+			isSingleCell: isSingleCell
 		})
 	}, {
 		// mem only affects resource allocation, not the result, so pass it as a
