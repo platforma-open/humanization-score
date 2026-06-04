@@ -9,13 +9,21 @@ math := import("math")
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
 processTpl := assets.importTemplate(":clonotype-process")
 
-// Non-fatal warning surfaced when no full variable region is available. Per the
-// spec (correct-behavior §3a/§7) the absence of a full variable domain
-// (e.g. a CDR3-assembled dataset, or only partial features like CDR1_TO_FR4 /
-// FR2_TO_FR4 / CDR2_TO_FR4) is NOT an error: the score is honestly "not
-// computable" (null), the run completes, and we explain why via the `warnings`
-// output. This must NOT crash the run.
-NO_FULL_DOMAIN_WARNING := "Humanness scoring requires sequences assembled over the full variable region (VDJRegion); no full variable region (VDJRegion) available — this dataset was assembled by CDR3. Re-run clonotyping assembled by VDJRegion to obtain humanness scores."
+// Canonical variable-region features, in natural N->C order. When no fully
+// assembled VDJRegion column is present we fall back to these per-region
+// amino-acid columns and let the Python scorer assemble a contiguous partial
+// domain per row (see body + software/src/main.py:assemble_and_score).
+allFeatures := ["FR1", "CDR1", "FR2", "CDR2", "FR3", "CDR3", "FR4"]
+
+// Non-fatal warning surfaced when there is nothing assemblable at all. Per the
+// spec (correct-behavior §3a/§7) the absence of any scoreable variable-region
+// material is NOT an error: the score is honestly "not computable" (null), the
+// run completes, and we explain why via the `warnings` output. This must NOT
+// crash the run. Note: a dataset that DOES provide FR/CDR columns but covers
+// fewer than 3 framework regions is NOT warned here — it yields a built unit
+// whose per-row score is null'd by the coverage gate in the Python scorer,
+// which is the honest result.
+NO_FULL_DOMAIN_WARNING := "Humanness scoring needs a contiguous variable-region domain covering at least 3 of the 4 framework regions. This dataset provides no assemblable variable-region features (no VDJRegion and no FR/CDR amino-acid columns); the score is null. Re-run clonotyping with full or partial (>=3 FR) variable-region assembly to obtain humanness scores."
 
 // TCR is a HARD reject (spec R5): the block does not apply to T-cell receptors,
 // whose repertoire (OAS) contains no TCR data. This stays a fatal ll.panic.
@@ -28,11 +36,10 @@ wf.prepare(func(args) {
 	bundleBuilder.ignoreMissingDomains()
 	bundleBuilder.addAnchor("main", args.inputAnchor)
 
-	// Collect the full variable-domain amino-acid column(s) only - this is the
-	// single scoring unit (FR1..FR4 already assembled). For the amino-acid
-	// alphabet the producer rewrites VDJRegion -> VDJRegionInFrame, so we must
-	// match VDJRegionInFrame here (plain VDJRegion is the nucleotide column).
-	// We never reconstruct from FR/CDR fragments.
+	// Preferred source: the fully assembled variable domain (FR1..FR4 already
+	// glued). For the amino-acid alphabet the producer rewrites VDJRegion ->
+	// VDJRegionInFrame, so we must match VDJRegionInFrame here (plain VDJRegion is
+	// the nucleotide column). When present (per chain) this is used directly.
 	bundleBuilder.addMulti({
 		axes: [{ anchor: "main", idx: 1 }],
 		name: "pl7.app/vdj/sequence",
@@ -41,6 +48,33 @@ wf.prepare(func(args) {
 			"pl7.app/vdj/feature": "VDJRegionInFrame"
 		}
 	}, "vdjRegions")
+
+	// Fallback source: the per-region amino-acid columns. When a chain has no
+	// VDJRegion column the body feeds these region columns to the scorer, which
+	// assembles a contiguous partial domain per row and applies the >=3-framework
+	// coverage gate. Same split as paratope-clustering: tengo pulls/orders the
+	// per-region columns, Python concatenates per row.
+	for feature in allFeatures {
+		bundleBuilder.addMulti({
+			axes: [{ anchor: "main", idx: 1 }],
+			name: "pl7.app/vdj/sequence",
+			domain: {
+				"pl7.app/vdj/feature": feature,
+				"pl7.app/alphabet": "aminoacid"
+			}
+		}, feature)
+	}
+
+	// FR4 can also be named FR4InFrame in some datasets; pull it as a per-chain
+	// fallback for the FR4 slot.
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }],
+		name: "pl7.app/vdj/sequence",
+		domain: {
+			"pl7.app/vdj/feature": "FR4InFrame",
+			"pl7.app/alphabet": "aminoacid"
+		}
+	}, "FR4InFrame")
 
 	return {
 		columns: bundleBuilder.build()
@@ -81,62 +115,148 @@ wf.body(func(args) {
 
 	vdjRegions := columnsWithSequences.getColumns("vdjRegions")
 
-	// Build one single-sequence scoring unit per chain type. Each unit's table
-	// holds the clonotype-key axis + exactly ONE "VDJRegion aa" column, which is
-	// what the Python scorer requires (exactly one sequence column per table).
+	// For single-cell data: keep only primary chains AND order them
+	// deterministically by scClonotypeChain (A before B). Bulk columns have no
+	// scClonotypeChain/index domain key, so this normalization is skipped for
+	// bulk data. Filtering out index != "primary" is what keeps secondary-rank
+	// (CDR3-only) rearrangements out of the scored table -> they stay null.
+	normalizePrimaryChainOrder := func(cols) {
+		if !isSingleCell {
+			return cols
+		}
+		byChain := {}
+		for col in cols {
+			if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
+				continue
+			}
+			sc := col.spec.domain["pl7.app/vdj/scClonotypeChain"]
+			byChain[sc] = col
+		}
+		ordered := []
+		for _, k in ["A", "B"] {
+			if !is_undefined(byChain[k]) {
+				ordered = append(ordered, byChain[k])
+			}
+		}
+		return ordered
+	}
+
+	// Per-region columns (primary-only + A-before-B for single-cell), keyed by
+	// feature, with the FR4 -> FR4InFrame fallback applied per chain so a chain
+	// that only carries FR4InFrame still fills its FR4 slot.
+	featureColumns := {}
+	for feature in allFeatures {
+		featureColumns[feature] = normalizePrimaryChainOrder(columnsWithSequences.getColumns(feature))
+	}
+	fr4InFrame := normalizePrimaryChainOrder(columnsWithSequences.getColumns("FR4InFrame"))
+
+	// Build one scoring unit per chain type. Each unit's table holds the
+	// clonotype-key axis plus EITHER a single "VDJRegion aa" column (full-domain
+	// fast path) OR this chain's per-region "FR1 aa".."FR4 aa" columns (assembled
+	// path). A table never mixes chains, and the region path never mixes the two
+	// shapes (VDJRegion takes precedence per chain). The Python scorer assembles
+	// the contiguous domain and applies the >=3-framework coverage gate per row.
 	convMemGiB := string(int(math.max(16, baseMemGiB / 4))) + "GiB"
 
-	buildUnitTable := func(colKey) {
+	// pairs is a list of {col, header}; headers must match the scorer's expected
+	// names exactly ("VDJRegion aa", or canonical "FR1 aa".."FR4 aa").
+	buildUnitTable := func(pairs) {
 		b := pFrames.parquetFileBuilder()
 		b.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
-		b.add(columnsWithSequences.getColumn(colKey), {header: "VDJRegion aa"})
+		for pair in pairs {
+			b.add(pair.col, {header: pair.header})
+		}
 		b.mem(convMemGiB)
 		b.cpu(1)
 		return b.build()
+	}
+
+	// Resolve the source for one chain. `chain` is the scClonotypeChain value for
+	// single-cell, or undefined for bulk. Returns the list of {col, header} pairs
+	// for that chain, or [] when nothing is assemblable. Prefers VDJRegion (one
+	// "VDJRegion aa" column); otherwise gathers the chain's per-region columns in
+	// canonical order, FR4 falling back to FR4InFrame.
+	chainColumnFor := func(cols, chain) {
+		if isSingleCell {
+			for col in cols {
+				if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
+					continue
+				}
+				if col.spec.domain["pl7.app/vdj/scClonotypeChain"] == chain {
+					return col
+				}
+			}
+			return undefined
+		}
+		if len(cols) > 0 {
+			return cols[0]
+		}
+		return undefined
+	}
+
+	selectPairsFor := func(chain) {
+		// Fast path: full domain present for this chain -> single column only.
+		vdjCol := chainColumnFor(vdjRegions, chain)
+		if !is_undefined(vdjCol) {
+			return [{ col: vdjCol, header: "VDJRegion aa" }]
+		}
+		// Fallback: per-region columns for this chain, canonical order.
+		pairs := []
+		for feature in allFeatures {
+			featCol := chainColumnFor(featureColumns[feature], chain)
+			if feature == "FR4" && is_undefined(featCol) {
+				featCol = chainColumnFor(fr4InFrame, chain)
+			}
+			if !is_undefined(featCol) {
+				pairs += [{ col: featCol, header: feature + " aa" }]
+			}
+		}
+		return pairs
 	}
 
 	units := []
 
 	if isSingleCell {
 		// Score the PRIMARY-rank rearrangement of each chain type (A=Heavy,
-		// B=Light). Secondary-rank rows are CDR3-only by construction => they
-		// are filtered out here and thus produce null for that chain. The null
-		// rule keys on index == "secondary", never on Heavy-vs-Light.
-		for entry in vdjRegions {
-			idx := entry.spec.domain["pl7.app/vdj/scClonotypeChain/index"]
-			if idx != "primary" {
+		// B=Light). Secondary-rank rows are filtered out (index != "primary")
+		// in both the VDJRegion and the per-region selection, so they produce
+		// null for that chain. The null rule keys on index == "secondary",
+		// never on Heavy-vs-Light.
+		for _, chain in ["A", "B"] {
+			pairs := selectPairsFor(chain)
+			if len(pairs) == 0 {
 				continue
 			}
-			chain := entry.spec.domain["pl7.app/vdj/scClonotypeChain"]
 			chainLabel := (chain == "A" ? "Heavy" : "Light")
 			units += [{
 				id: "humannessScore" + chain,
-				table: buildUnitTable(entry.key),
+				table: buildUnitTable(pairs),
 				chain: chain,
 				chainLabel: chainLabel
 			}]
 		}
 	} else {
-		// Bulk / VHH: a single chain. Use the VDJRegionInFrame aa column directly
-		// (FR1..FR4, FR4 included). No fragment gluing, no CDR3 fallback.
-		if len(vdjRegions) > 0 {
+		// Bulk / VHH: a single chain. Prefer the VDJRegionInFrame aa column; else
+		// assemble from this chain's per-region columns.
+		pairs := selectPairsFor(undefined)
+		if len(pairs) > 0 {
 			units += [{
 				id: "humannessScore",
-				table: buildUnitTable(vdjRegions[0].key),
+				table: buildUnitTable(pairs),
 				chain: undefined,
 				chainLabel: undefined
 			}]
 		}
 	}
 
-	// No full variable region available (no VDJRegionInFrame column present at
-	// all) => this is the legitimate "unscoreable" path, NOT an error. It covers
-	// CDR3-assembled datasets and partial-domain features (CDR1_TO_FR4 /
-	// FR2_TO_FR4 / CDR2_TO_FR4), all of which the prepare query already excludes
-	// (it matches feature == "VDJRegionInFrame" only) and which therefore yield
-	// zero units. Instead of panicking we surface a non-fatal warning and emit an
-	// empty result; the run completes and the score is honestly null. See spec
-	// correct-behavior §3a/§7. (TCR remains a hard reject above, per R5.)
+	// Nothing assemblable at all (neither a VDJRegion column nor any per-region
+	// FR/CDR column for any chain) => the legitimate "unscoreable" path, NOT an
+	// error. Instead of panicking we surface a non-fatal warning and emit an
+	// empty result; the run completes and the score is honestly null. A dataset
+	// that DOES provide region columns but covers <3 framework regions is NOT
+	// warned here: it yields a built unit whose per-row score is null'd by the
+	// coverage gate in the Python scorer. See spec correct-behavior §3a/§7.
+	// (TCR remains a hard reject above, per R5.)
 	warnings := []
 	if len(units) == 0 {
 		warnings += [NO_FULL_DOMAIN_WARNING]

@@ -1,9 +1,13 @@
-# TODO — deferred decisions for humanness scoring
+# TODO — future improvements for humanness scoring
 
-Backlog of decisions deferred out of the current milestone. Each item maps to a
-`PENDING` decision or fidelity caveat in [`humanness-scoring.md`](./humanness-scoring.md).
-None of these block the current promb-based score; they define the gap between our
-lightweight approximation and faithful OASis/BioPhi.
+Backlog of **future** improvements, deferred out of the current milestone. Each item maps to a
+`PENDING` decision or a fidelity caveat in [`humanness-scoring.md`](./humanness-scoring.md).
+None of these block the current promb-based score; they close the gap between our lightweight
+approximation and faithful OASis/BioPhi.
+
+> Current-scope work is **not** tracked here — it lives in the spec as confirmed behavior. In
+> particular **D2** (widen scoring to contiguous partial domains, ≥3 FRs) is settled in
+> `humanness-scoring.md` §3a/§3b and is the active implementation target, not a future item.
 
 ---
 

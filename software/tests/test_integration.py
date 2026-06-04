@@ -16,6 +16,9 @@ DATA_DIR = Path(__file__).parent / "data"
 DATA = DATA_DIR / "sequences.tsv"
 DATA_SC = DATA_DIR / "sequences_sc.tsv"
 DATA_CDR3 = DATA_DIR / "sequences_cdr3_only.tsv"
+DATA_PARTIAL_3FR = DATA_DIR / "sequences_partial_3fr.tsv"
+DATA_2FR = DATA_DIR / "sequences_2fr.tsv"
+DATA_NONCONTIGUOUS = DATA_DIR / "sequences_noncontiguous.tsv"
 
 # Public reference sequences (FDA-approved / textbook examples).
 TRASTUZUMAB_VH = (
@@ -124,29 +127,182 @@ def test_identify_ignores_annotation_and_key_columns():
     assert m.identify_sequence_column(cols) == "sequence aa"
 
 
-def test_multiple_sequence_columns_is_contract_violation():
-    with pytest.raises(ValueError, match="multiple sequence columns"):
-        m.identify_sequence_column(["clonotypeKey", "CDR3 aa", "FR1 aa"])
+def test_mixed_region_and_nonregion_is_contract_violation():
+    """A region column mixed with a non-region ' aa' column is still a violation.
+
+    (Multiple canonical region columns alone are now VALID region-mode; the
+    violation is reserved for a stray / full-domain ' aa' column mixed in, which
+    would risk an incoherent cross-region/cross-chain concatenation.)
+    """
+    with pytest.raises(ValueError, match="Contract violation"):
+        m.resolve_sequence_columns(["clonotypeKey", "CDR3 aa", "sequence aa"])
 
 
 def test_no_sequence_column_is_contract_violation():
     with pytest.raises(ValueError, match="no sequence column"):
-        m.identify_sequence_column(["clonotypeKey", "annotations"])
+        m.resolve_sequence_columns(["clonotypeKey", "annotations"])
 
 
-def test_cli_exits_on_multiple_sequence_columns(tmp_path):
-    """The old code silently concatenated; the new code must fail fast."""
+def test_single_sequence_column_resolves_to_single():
+    assert m.resolve_sequence_columns(["clonotypeKey", "VDJRegion aa"]) == (
+        "single",
+        "VDJRegion aa",
+    )
+
+
+def test_multiple_region_columns_resolve_to_regions_mode():
+    """Multiple canonical region columns now resolve to region-mode (not a
+    violation), ordered by canonical FR1->...->FR4 regardless of input order."""
+    mode, cols = m.resolve_sequence_columns(
+        ["clonotypeKey", "FR3 aa", "CDR1 aa", "FR1 aa"]
+    )
+    assert mode == "regions"
+    assert cols == ["FR1 aa", "CDR1 aa", "FR3 aa"]
+
+
+def test_cli_exits_on_mixed_region_and_nonregion(tmp_path):
+    """A region column mixed with a non-region ' aa' column must fail fast."""
     src = pl.DataFrame(
         {
             "clonotypeKey": ["c1"],
-            "CDR1 aa": ["GYTFTRY"],
             "CDR3 aa": ["CARYALD"],
-            "FR1 aa": [TRASTUZUMAB_VH],
+            "sequence aa": [TRASTUZUMAB_VH],
         }
     )
     with pytest.raises(SystemExit) as exc:
         run_main_from_df(tmp_path, src)
     assert "Contract violation" in str(exc.value)
+
+
+# ---------- Assembly: contiguity + coverage gate ----------
+
+_REGION_COLS = ["FR1 aa", "CDR1 aa", "FR2 aa", "CDR2 aa", "FR3 aa", "CDR3 aa", "FR4 aa"]
+
+# Split of TRASTUZUMAB_VH into contiguous region pieces (concatenation == VH).
+_T_FR1 = "EVQLVESGGGLVQPGGSLRL"
+_T_CDR1 = "SCAASGFNIKDTYIHWVRQA"
+_T_FR2 = "PGKGLEWVARIYPTNGYTRY"
+_T_CDR2 = "ADSVKGRFTISADTSKNTAYLQMNSLRAED"
+_T_FR3 = "TAVYYCSRWGGDGFYAMDYW"
+_T_FR4 = "GQGTLVTVSS"
+
+
+def test_assemble_three_fr_scores_equals_humanness_of_concat():
+    """FR2..FR4 present (3 FRs), contiguous CDR1->FR4 run -> scores == humanness(concat)."""
+    row = {
+        "CDR1 aa": _T_FR1,
+        "FR2 aa": _T_CDR1,
+        "CDR2 aa": _T_FR2,
+        "FR3 aa": _T_CDR2,
+        "CDR3 aa": _T_FR3,
+        "FR4 aa": _T_FR4,
+    }
+    cols = ["CDR1 aa", "FR2 aa", "CDR2 aa", "FR3 aa", "CDR3 aa", "FR4 aa"]
+    score = m.assemble_and_score(row, cols)
+    assert score is not None
+    assert 0.0 <= score <= 100.0
+    assert score == m.humanness(TRASTUZUMAB_VH)
+
+
+def test_assemble_full_seven_regions_canonical_order():
+    row = {
+        "FR1 aa": "EVQLVESGGG",
+        "CDR1 aa": "LVQPGGSLRL",
+        "FR2 aa": "SCAASGFNIK",
+        "CDR2 aa": "DTYIHWVRQA",
+        "FR3 aa": "PGKGLEWVAR",
+        "CDR3 aa": "IYPTNGYTRY",
+        "FR4 aa": "ADSVKGRFTI",
+    }
+    expected = "".join(row[c] for c in _REGION_COLS)
+    score = m.assemble_and_score(row, _REGION_COLS)
+    assert score == m.humanness(expected)
+
+
+def test_assemble_two_fr_below_floor_is_none():
+    """Only FR3,FR4 framework regions present (2 FRs) -> coverage gate nulls it."""
+    row = {
+        "CDR2 aa": _T_FR2,
+        "FR3 aa": _T_CDR2,
+        "CDR3 aa": _T_FR3,
+        "FR4 aa": _T_FR4,
+    }
+    cols = ["CDR2 aa", "FR3 aa", "CDR3 aa", "FR4 aa"]
+    assert m.assemble_and_score(row, cols) is None
+
+
+def test_assemble_noncontiguous_is_none():
+    """FR1 + FR3 present, interior gap -> incoherent stitch -> None."""
+    row = {"FR1 aa": _T_FR1, "FR3 aa": _T_CDR2}
+    cols = ["FR1 aa", "FR3 aa"]
+    assert m.assemble_and_score(row, cols) is None
+
+
+def test_assemble_interior_region_absent_as_column_is_none():
+    """Regression: an interior canonical region absent AS A COLUMN is a hole.
+
+    Contiguity must be judged against the full canonical template, not merely the
+    columns present in the table. These cases each carry >=3 framework regions, so
+    the coverage gate does NOT null them — only the contiguity rule does. Before
+    the template-aware fix they spuriously scored by gluing non-adjacent regions
+    (FR2 onto FR4, FR2 onto FR3), fabricating junction 9-mers (spec §3a).
+    """
+    # FR3 absent as a column: FR1,FR2,FR4 present (3 FRs) but a hole at FR3.
+    row_a = {"FR1 aa": _T_FR1, "FR2 aa": _T_FR2, "FR4 aa": _T_FR4}
+    cols_a = ["FR1 aa", "FR2 aa", "FR4 aa"]
+    assert m.assemble_and_score(row_a, cols_a) is None
+
+    # CDR2 absent as a column: CDR1,FR2,FR3,CDR3,FR4 present (3 FRs) but hole at CDR2.
+    row_b = {
+        "CDR1 aa": _T_CDR1,
+        "FR2 aa": _T_FR2,
+        "FR3 aa": _T_FR3,
+        "CDR3 aa": _T_CDR2,
+        "FR4 aa": _T_FR4,
+    }
+    cols_b = ["CDR1 aa", "FR2 aa", "FR3 aa", "CDR3 aa", "FR4 aa"]
+    assert m.assemble_and_score(row_b, cols_b) is None
+
+
+def test_assemble_sentinel_region_treated_as_absent():
+    """A sentinel region value drops FR coverage below the floor -> None."""
+    row = {
+        "FR1 aa": _T_FR1,
+        "CDR1 aa": _T_CDR1,
+        "FR2 aa": "region_not_covered",  # sentinel -> absent -> breaks contiguity
+        "CDR2 aa": _T_CDR2,
+        "FR3 aa": _T_FR3,
+        "FR4 aa": _T_FR4,
+    }
+    cols = ["FR1 aa", "CDR1 aa", "FR2 aa", "CDR2 aa", "FR3 aa", "FR4 aa"]
+    # FR2 absent makes the present set {FR1,CDR1 | CDR2,FR3,FR4} non-contiguous.
+    assert m.assemble_and_score(row, cols) is None
+
+
+# ---------- End-to-end CLI: region-assembled fixtures ----------
+
+
+def test_cli_partial_3fr_scores_non_null(tmp_path):
+    df = run_main(tmp_path, DATA_PARTIAL_3FR)
+    by_key = dict(zip(df["clonotypeKey"].to_list(), df["humanness_score"].to_list()))
+    score = by_key["clone_partial"]
+    assert score is not None
+    assert 0.0 <= score <= 100.0
+    # The six contiguous region pieces concatenate to the full trastuzumab VH.
+    assert score == m.humanness(TRASTUZUMAB_VH)
+    # The consumed region columns must not be passed through.
+    for c in ("CDR1 aa", "FR2 aa", "CDR2 aa", "FR3 aa", "CDR3 aa", "FR4 aa"):
+        assert c not in df.columns
+
+
+def test_cli_2fr_is_null(tmp_path):
+    df = run_main(tmp_path, DATA_2FR)
+    assert df["humanness_score"].to_list() == [None]
+
+
+def test_cli_noncontiguous_is_null(tmp_path):
+    df = run_main(tmp_path, DATA_NONCONTIGUOUS)
+    assert df["humanness_score"].to_list() == [None]
 
 
 # ---------- End-to-end CLI tests (new contract) ----------
@@ -155,7 +311,7 @@ def test_cli_exits_on_multiple_sequence_columns(tmp_path):
 def test_output_has_expected_columns(tmp_path):
     # Behavior-sanity check (passes on old and new code): the actual regression
     # guards against the concatenation bug are the contract-violation tests
-    # (test_cli_exits_on_multiple_sequence_columns) and the single-cell
+    # (test_cli_exits_on_mixed_region_and_nonregion) and the single-cell
     # per-chain passthrough test.
     df = run_main(tmp_path)
     assert "humanness_score" in df.columns
@@ -173,8 +329,8 @@ def test_score_equals_direct_humanness_no_duplication(tmp_path):
     single ' aa' column the old concat-all-' aa'-columns code is a no-op and
     produces the same score, so this test passes on both old and new code. The
     anti-concatenation guarantee itself is proven by
-    test_cli_exits_on_multiple_sequence_columns and
-    test_multiple_sequence_columns_is_contract_violation, which DO diverge
+    test_cli_exits_on_mixed_region_and_nonregion and
+    test_mixed_region_and_nonregion_is_contract_violation, which DO diverge
     between old and new code.
     """
     df = run_main(tmp_path)
