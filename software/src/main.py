@@ -1,20 +1,27 @@
 #!/usr/bin/env python3
 """Antibody-mode entry point for humanness scoring.
 
-Pipeline overview:
-- Input Parquet: one row per clonotype, keyed by `clonotypeKey`. Contains one or
-  more amino-acid sequence columns (e.g. "CDR3 aa", "Heavy CDR3 aa", "FR1 aa", ...).
-- Output Parquet: two columns — `clonotypeKey` and `humanness_score` (Float, 0..100,
-  may be null for sequences too short to score).
+Contract (one chain in, one score out):
+- Input Parquet: one row per scoring unit, where each row already represents the
+  **complete variable domain of one chain** (FR1-CDR1-FR2-CDR2-FR3-CDR3-FR4 in
+  natural order). Each row carries a key column (`clonotypeKey`), optionally a
+  chain-identifier column (carried through unchanged), and **exactly one**
+  amino-acid sequence column (its name ends with " aa", e.g. "VDJRegion aa").
+- Output Parquet: the key column(s) + any chain-identifier column + a
+  `humanness_score` column (Float, 0..100, may be null).
 
-For each row we collect every column whose name ends with " aa" (case-insensitive)
-and is not an annotation column, concatenate the sequences, then compute the
-humanness score via promb's `compute_peptide_content` over the `human-oas` DB
-(fraction of overlapping 9-mers found in human antibody repertoires), rescaled
-to [0, 100]. Higher = more human.
+We score that single sequence column row-by-row with `humanness()` using promb's
+`compute_peptide_content` over the `human-oas` DB (fraction of overlapping 9-mers
+found in human antibody repertoires), rescaled to [0, 100]. Higher = more human.
 
-Short sequences (<9 aa, the promb 9-mer window) and any scoring exceptions
-yield a null score so the pipeline never fails on a single bad row.
+No cross-column concatenation is ever performed: gluing region/chain fragments
+fabricates 9-mer windows that never occur in nature and corrupts the score. If the
+input carries more than one sequence column that is a **contract violation** and we
+fail fast rather than silently concatenating.
+
+Short sequences (<9 aa, the promb 9-mer window) and any scoring exceptions yield a
+null score so the pipeline never fails on a single bad data row. The only fast
+failure is the contract violation about the sequence-column count.
 """
 import argparse
 import sys
@@ -22,10 +29,13 @@ from functools import lru_cache
 
 import polars as pl
 
-
 # Minimum window length used by promb on the human-oas DB. Sequences shorter
 # than this cannot produce a single 9-mer and are unscoreable.
 _MIN_WINDOW = 9
+
+# Key columns that are carried through to the output unchanged. Anything matching
+# is never treated as the sequence to score.
+_KEY_COLUMNS = ("clonotypeKey", "scClonotypeKey")
 
 
 @lru_cache(maxsize=1)
@@ -52,16 +62,40 @@ def humanness(seq: str | None) -> float | None:
     return round(float(frac) * 100.0, 2)
 
 
-def _identify_sequence_columns(columns: list[str]) -> list[str]:
-    """Return columns whose name ends with ' aa' (case-insensitive), excluding
-    annotation-only columns. Order is preserved.
+def _is_sequence_column(name: str) -> bool:
+    """True if `name` denotes a sequence column to score.
+
+    The robust rule: a column whose normalized name ends with " aa"
+    (case-insensitive), and is not an annotation column. Key columns never match.
     """
-    seq_cols: list[str] = []
-    for c in columns:
-        cl = c.lower()
-        if cl.endswith(" aa") and not cl.endswith("annotations"):
-            seq_cols.append(c)
-    return seq_cols
+    if name in _KEY_COLUMNS:
+        return False
+    nl = name.lower()
+    return nl.endswith(" aa") and not nl.endswith("annotations")
+
+
+def identify_sequence_column(columns: list[str]) -> str:
+    """Return the single sequence column to score, or raise on contract violation.
+
+    Exactly one column may end in " aa" (case-insensitive, non-annotation). Zero or
+    more than one is a contract violation: each input row must be exactly one full
+    variable domain of one chain, so there is never more than one sequence to score.
+    """
+    seq_cols = [c for c in columns if _is_sequence_column(c)]
+    if len(seq_cols) == 1:
+        return seq_cols[0]
+    if len(seq_cols) == 0:
+        raise ValueError(
+            "Contract violation: input has no sequence column (expected exactly one "
+            "column whose name ends in ' aa'). Each row must carry one full variable "
+            f"domain to score. Columns present: {columns}"
+        )
+    raise ValueError(
+        "Contract violation: input has multiple sequence columns "
+        f"{seq_cols}; expected exactly one. Each row must already be one full "
+        "variable domain of one chain. Sequences must not be concatenated across "
+        "regions or chains; assemble the full domain upstream before scoring."
+    )
 
 
 def main() -> None:
@@ -77,27 +111,25 @@ def main() -> None:
 
     df.columns = [" ".join(col.strip().split()) for col in df.columns]
 
-    has_key = "clonotypeKey" in df.columns
-    seq_cols = _identify_sequence_columns(list(df.columns))
+    # Contract enforcement: exactly one sequence column. Fail fast otherwise.
+    try:
+        seq_col = identify_sequence_column(list(df.columns))
+    except ValueError as e:
+        sys.exit(str(e))
 
-    if seq_cols:
-        # Concatenate all sequence columns into one string per row, then score.
-        concat_expr = pl.concat_str(
-            [pl.col(c).cast(pl.Utf8).fill_null("") for c in seq_cols],
-            separator="",
-        )
-        score_series = concat_expr.map_elements(humanness, return_dtype=pl.Float64).alias("humanness_score")
-        df_scored = df.with_columns(score_series)
-    else:
-        df_scored = df.with_columns(pl.lit(None).cast(pl.Float64).alias("humanness_score"))
+    score_series = (
+        pl.col(seq_col)
+        .cast(pl.Utf8)
+        .map_elements(humanness, return_dtype=pl.Float64)
+        .alias("humanness_score")
+    )
+    df_scored = df.with_columns(score_series)
 
-    output_cols: list[str] = []
-    if has_key:
-        output_cols.append("clonotypeKey")
-    output_cols.append("humanness_score")
-
-    # If clonotypeKey isn't present (degenerate input), still write a one-column table.
-    df_out = df_scored.select([c for c in output_cols if c in df_scored.columns])
+    # Carry through the key column(s) and any chain-identifier columns, plus the
+    # score. Everything that is not the scored sequence column and not the score is
+    # passed through unchanged so the workflow can map scores back to chains.
+    passthrough = [c for c in df.columns if c != seq_col]
+    df_out = df_scored.select([*passthrough, "humanness_score"])
 
     try:
         df_out.write_parquet(args.output_parquet)
