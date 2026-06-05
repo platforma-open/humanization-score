@@ -34,7 +34,17 @@ export type BlockData = {
 };
 
 // Humanness score column name emitted by `clonotype-process.tpl.tengo`.
+// All per-chain score columns share this name; single-cell chains are
+// distinguished only by the `CHAIN_DOMAIN` domain entry below.
 export const HUMANNESS_SCORE_COLUMN = 'pl7.app/humannessScore';
+
+// Domain key carried by single-cell per-chain score columns. Value is the
+// chain TYPE: 'A' = Heavy, 'B' = Light (matches the upstream producer's
+// `pl7.app/vdj/scClonotypeChain` convention). Bulk columns have no
+// scClonotypeChain domain key (they still carry pl7.app/blockId).
+export const CHAIN_DOMAIN = 'pl7.app/vdj/scClonotypeChain';
+export const CHAIN_HEAVY = 'A';
+export const CHAIN_LIGHT = 'B';
 
 export const defaultGraphStateHistogram = (): GraphMakerState => ({
   title: 'Humanness Score Distribution',
@@ -52,19 +62,42 @@ export const defaultGraphStateHistogram = (): GraphMakerState => ({
 
 // Selectors for the input dataset anchor — shared between `inputOptions`
 // (the dropdown) and `subtitle` (so the default label matches the dataset name).
-const inputSelectors = [{
-  axes: [
-    { name: 'pl7.app/sampleId' },
-    { name: 'pl7.app/vdj/clonotypeKey' },
-  ],
-  annotations: { 'pl7.app/isAnchor': 'true' },
-}, {
-  axes: [
-    { name: 'pl7.app/sampleId' },
-    { name: 'pl7.app/vdj/scClonotypeKey' },
-  ],
-  annotations: { 'pl7.app/isAnchor': 'true' },
-}];
+//
+// Humanness scoring applies to ANTIBODIES only, so we offer Ig datasets only:
+//   - bulk: the clonotypeKey axis carries `pl7.app/vdj/chain` set to the
+//           producer's chainInfos KEYS — IG = {IGHeavy, IGLight} (NOT the mixcr
+//           filter values IGH/IGK/IGL). Axis-domain matching can't express a
+//           value set, so we emit one selector per allowed chain (OR-ed).
+//   - single-cell: the scClonotypeKey axis carries `pl7.app/vdj/receptor == 'IG'`.
+// TCR datasets (TR* / TCRAB / TCRGD) are therefore never offered. The workflow
+// guard (main.tpl.tengo) is the backstop (hard-fail ll.panic) if a TCR dataset
+// is forced — TCR is a hard reject per spec R5.
+//
+// NOTE: we cannot express "has a VDJRegionInFrame sequence column" here because
+// that lives on the sequence columns, not the anchor axis. CDR3-assembled
+// (no full VDJRegion) Ig datasets are therefore still OFFERED by these
+// selectors. They are NO LONGER hard-rejected: per spec §3a/§7 such datasets are
+// now ACCEPTED and produce a NULL/empty humanness result plus a non-fatal
+// warning (instructing the user to re-run clonotyping assembled by VDJRegion);
+// the run completes without crashing. Only TCR input is hard-rejected. The
+// selectors stay Ig-only and never filtered on VDJRegion availability.
+const BULK_CHAINS = ['IGHeavy', 'IGLight'];
+const inputSelectors = [
+  ...BULK_CHAINS.map((chain) => ({
+    axes: [
+      { name: 'pl7.app/sampleId' },
+      { name: 'pl7.app/vdj/clonotypeKey', domain: { 'pl7.app/vdj/chain': chain } },
+    ],
+    annotations: { 'pl7.app/isAnchor': 'true' },
+  })),
+  {
+    axes: [
+      { name: 'pl7.app/sampleId' },
+      { name: 'pl7.app/vdj/scClonotypeKey', domain: { 'pl7.app/vdj/receptor': 'IG' } },
+    ],
+    annotations: { 'pl7.app/isAnchor': 'true' },
+  },
+];
 
 const dataModel = new DataModelBuilder()
   .from<BlockData>('v1')
@@ -103,7 +136,10 @@ export const platforma = BlockModelV3.create(dataModel)
       return undefined;
     }
 
-    const anchorCol = pCols[0];
+    const anchorCol
+      = pCols.find((c) => c.spec.domain?.[CHAIN_DOMAIN] === CHAIN_HEAVY)
+        ?? pCols[0];
+
     if (anchorCol === undefined) {
       return undefined;
     }
@@ -129,13 +165,20 @@ export const platforma = BlockModelV3.create(dataModel)
     return pCols.map((c) => ({ columnId: c.id, spec: c.spec }));
   })
 
+  // Non-fatal warnings emitted by the workflow (e.g. "no full variable region
+  // available" for CDR3-assembled datasets). Empty array when scoring succeeded.
+  // The UI renders these as a non-blocking banner; the run still completes.
+  .output('warnings', (ctx) =>
+    ctx.outputs?.resolve('warnings')?.getDataAsJson<string[]>() ?? [],
+  )
+
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
 
-  .title(() => 'Humanization Score')
+  .title(() => 'Humanness Score')
 
   .subtitle((ctx) => {
     if (ctx.data.customBlockLabel) return ctx.data.customBlockLabel;
-    return 'Humanization Score';
+    return 'Humanness Score';
   })
 
   .sections((_) => [

@@ -1,5 +1,5 @@
 {
-  "name": "@platforma-open/milaboratories.humanization-score.ui",
+  "name": "@platforma-open/milaboratories.humanness-score.ui",
   "version": "0.3.2",
   "type": "module",
   "scripts": {
@@ -12,7 +12,7 @@
     "do-pack": "shx rm -f *.tgz && pnpm pack && shx mv *.tgz package.tgz"
   },
   "dependencies": {
-    "@platforma-open/milaboratories.humanization-score.model": "workspace:*",
+    "@platforma-open/milaboratories.humanness-score.model": "workspace:*",
     "@platforma-sdk/ui-vue": "catalog:",
     "@platforma-sdk/model": "catalog:",
     "@milaboratories/strings": "catalog:",

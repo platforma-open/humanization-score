@@ -9,6 +9,26 @@ math := import("math")
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
 processTpl := assets.importTemplate(":clonotype-process")
 
+// Canonical variable-region features, in natural N->C order. When no fully
+// assembled VDJRegion column is present we fall back to these per-region
+// amino-acid columns and let the Python scorer assemble a contiguous partial
+// domain per row (see body + software/src/main.py:assemble_and_score).
+allFeatures := ["FR1", "CDR1", "FR2", "CDR2", "FR3", "CDR3", "FR4"]
+
+// Non-fatal warning surfaced when there is nothing assemblable at all. Per the
+// spec (correct-behavior §3a/§7) the absence of any scoreable variable-region
+// material is NOT an error: the score is honestly "not computable" (null), the
+// run completes, and we explain why via the `warnings` output. This must NOT
+// crash the run. Note: a dataset that DOES provide FR/CDR columns but covers
+// fewer than 3 framework regions is NOT warned here — it yields a built unit
+// whose per-row score is null'd by the coverage gate in the Python scorer,
+// which is the honest result.
+NO_FULL_DOMAIN_WARNING := "Humanness scoring needs a contiguous variable-region domain covering at least 3 of the 4 framework regions. This dataset provides no assemblable variable-region features (no VDJRegion and no FR/CDR amino-acid columns); the score is null. Re-run clonotyping with full or partial (>=3 FR) variable-region assembly to obtain humanness scores."
+
+// TCR is a HARD reject (spec R5): the block does not apply to T-cell receptors,
+// whose repertoire (OAS) contains no TCR data. This stays a fatal ll.panic.
+TCR_MESSAGE := "Humanness scoring applies to antibodies only; TCR input is not supported."
+
 // Prepare phase of the workflow - collects and sets up required data
 wf.prepare(func(args) {
 
@@ -16,42 +36,50 @@ wf.prepare(func(args) {
 	bundleBuilder.ignoreMissingDomains()
 	bundleBuilder.addAnchor("main", args.inputAnchor)
 
-	// Collect all amino acid sequences from the input data
-	bundleBuilder.addMulti({
-		axes: [{ anchor: "main", idx: 1 }],
-		annotations: {
-			"pl7.app/vdj/isAssemblingFeature": "true"
-		},
-		domain: {
-			"pl7.app/alphabet": "aminoacid"
-			}
-		}, "sequences")
-
-	bundleBuilder.addMulti({
-		axes: [{ anchor: "main", idx: 1 }],
-		name: "pl7.app/vdj/sequence/annotation",
-		annotations: {
-			"pl7.app/sequence/isAnnotation": "true"
-		},
-		domain: {
-			"pl7.app/alphabet": "aminoacid",
-          	"pl7.app/sequence/annotation/type": "CDRs"
-		}
-	}, "annotations")
-
+	// Preferred source: the fully assembled variable domain (FR1..FR4 already
+	// glued). For the amino-acid alphabet the producer rewrites VDJRegion ->
+	// VDJRegionInFrame, so we must match VDJRegionInFrame here (plain VDJRegion is
+	// the nucleotide column). When present (per chain) this is used directly.
 	bundleBuilder.addMulti({
 		axes: [{ anchor: "main", idx: 1 }],
 		name: "pl7.app/vdj/sequence",
 		domain: {
+			"pl7.app/alphabet": "aminoacid",
+			"pl7.app/vdj/feature": "VDJRegionInFrame"
+		}
+	}, "vdjRegions")
+
+	// Fallback source: the per-region amino-acid columns. When a chain has no
+	// VDJRegion column the body feeds these region columns to the scorer, which
+	// assembles a contiguous partial domain per row and applies the >=3-framework
+	// coverage gate. Same split as paratope-clustering: tengo pulls/orders the
+	// per-region columns, Python concatenates per row.
+	for feature in allFeatures {
+		bundleBuilder.addMulti({
+			axes: [{ anchor: "main", idx: 1 }],
+			name: "pl7.app/vdj/sequence",
+			domain: {
+				"pl7.app/vdj/feature": feature,
+				"pl7.app/alphabet": "aminoacid"
+			}
+		}, feature)
+	}
+
+	// FR4 can also be named FR4InFrame in some datasets; pull it as a per-chain
+	// fallback for the FR4 slot.
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }],
+		name: "pl7.app/vdj/sequence",
+		domain: {
+			"pl7.app/vdj/feature": "FR4InFrame",
 			"pl7.app/alphabet": "aminoacid"
 		}
-	}, "additionalSequences")
+	}, "FR4InFrame")
 
-		return {
-			columns: bundleBuilder.build()
-		}
+	return {
+		columns: bundleBuilder.build()
 	}
-)
+})
 
 wf.body(func(args) {
 
@@ -65,120 +93,215 @@ wf.body(func(args) {
 		baseMemGiB = args.mem
 	}
 
-	sequences := columnsWithSequences.getColumns("sequences")
-	annotations := columnsWithSequences.getColumns("annotations")
-	additionalSequences := columnsWithSequences.getColumns("additionalSequences")
-	// Determine if we're working with single cell data
+	// Determine if we're working with single cell data.
 	isSingleCell := datasetSpec.axesSpec[1].name == "pl7.app/vdj/scClonotypeKey"
 
-	seqTableBuilder := pFrames.parquetFileBuilder()
-	seqTableBuilder.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
-
-	if len(sequences) == 0 {
-		ll.panic("No sequences found in the input data.")
+	// The clonotype-key axis carries the Ig/TCR domain. Reject TCR fast.
+	keyAxisSpec := datasetSpec.axesSpec[1]
+	if isSingleCell {
+		receptor := keyAxisSpec.domain["pl7.app/vdj/receptor"]
+		if receptor != "IG" {
+			ll.panic(TCR_MESSAGE)
+		}
+	} else {
+		// The producer sets this axis-domain to the chainInfos KEYS, not the
+		// mixcr filter values: IG = "IGHeavy"/"IGLight", TCR = "TCRAlpha"/
+		// "TCRBeta"/"TCRGamma"/"TCRDelta". Accept only the IG keys.
+		chain := keyAxisSpec.domain["pl7.app/vdj/chain"]
+		if !(chain == "IGHeavy" || chain == "IGLight") {
+			ll.panic(TCR_MESSAGE)
+		}
 	}
 
-	hasAnnotations := len(annotations) > 0
+	vdjRegions := columnsWithSequences.getColumns("vdjRegions")
 
-	// Track which features are present, to avoid emitting duplicate
-	// sequence-table headers below.
-	coveredFeatures := {}
+	// For single-cell data: keep only primary chains AND order them
+	// deterministically by scClonotypeChain (A before B). Bulk columns have no
+	// scClonotypeChain/index domain key, so this normalization is skipped for
+	// bulk data. Filtering out index != "primary" is what keeps secondary-rank
+	// (CDR3-only) rearrangements out of the scored table -> they stay null.
+	normalizePrimaryChainOrder := func(cols) {
+		if !isSingleCell {
+			return cols
+		}
+		byChain := {}
+		for col in cols {
+			if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
+				continue
+			}
+			sc := col.spec.domain["pl7.app/vdj/scClonotypeChain"]
+			byChain[sc] = col
+		}
+		ordered := []
+		for _, k in ["A", "B"] {
+			if !is_undefined(byChain[k]) {
+				ordered = append(ordered, byChain[k])
+			}
+		}
+		return ordered
+	}
+
+	// Per-region columns (primary-only + A-before-B for single-cell), keyed by
+	// feature, with the FR4 -> FR4InFrame fallback applied per chain so a chain
+	// that only carries FR4InFrame still fills its FR4 slot.
+	featureColumns := {}
+	for feature in allFeatures {
+		featureColumns[feature] = normalizePrimaryChainOrder(columnsWithSequences.getColumns(feature))
+	}
+	fr4InFrame := normalizePrimaryChainOrder(columnsWithSequences.getColumns("FR4InFrame"))
+
+	// Build one scoring unit per chain type. Each unit's table holds the
+	// clonotype-key axis plus EITHER a single "VDJRegion aa" column (full-domain
+	// fast path) OR this chain's per-region "FR1 aa".."FR4 aa" columns (assembled
+	// path). A table never mixes chains, and the region path never mixes the two
+	// shapes (VDJRegion takes precedence per chain). The Python scorer assembles
+	// the contiguous domain and applies the >=3-framework coverage gate per row.
+	convMemGiB := string(int(math.max(16, baseMemGiB / 4))) + "GiB"
+
+	// pairs is a list of {col, header}; headers must match the scorer's expected
+	// names exactly ("VDJRegion aa", or canonical "FR1 aa".."FR4 aa").
+	buildUnitTable := func(pairs) {
+		b := pFrames.parquetFileBuilder()
+		b.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
+		for pair in pairs {
+			b.add(pair.col, {header: pair.header})
+		}
+		b.mem(convMemGiB)
+		b.cpu(1)
+		return b.build()
+	}
+
+	// Resolve the source for one chain. `chain` is the scClonotypeChain value for
+	// single-cell, or undefined for bulk. Returns the list of {col, header} pairs
+	// for that chain, or [] when nothing is assemblable. Prefers VDJRegion (one
+	// "VDJRegion aa" column); otherwise gathers the chain's per-region columns in
+	// canonical order, FR4 falling back to FR4InFrame.
+	chainColumnFor := func(cols, chain) {
+		if isSingleCell {
+			for col in cols {
+				if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
+					continue
+				}
+				if col.spec.domain["pl7.app/vdj/scClonotypeChain"] == chain {
+					return col
+				}
+			}
+			return undefined
+		}
+		if len(cols) > 0 {
+			return cols[0]
+		}
+		return undefined
+	}
+
+	selectPairsFor := func(chain) {
+		// Fast path: full domain present for this chain -> single column only.
+		vdjCol := chainColumnFor(vdjRegions, chain)
+		if !is_undefined(vdjCol) {
+			return [{ col: vdjCol, header: "VDJRegion aa" }]
+		}
+		// Fallback: per-region columns for this chain, canonical order.
+		pairs := []
+		for feature in allFeatures {
+			featCol := chainColumnFor(featureColumns[feature], chain)
+			if feature == "FR4" && is_undefined(featCol) {
+				featCol = chainColumnFor(fr4InFrame, chain)
+			}
+			if !is_undefined(featCol) {
+				pairs += [{ col: featCol, header: feature + " aa" }]
+			}
+		}
+		return pairs
+	}
+
+	units := []
 
 	if isSingleCell {
-		// Single-cell data handling
-		// Add primary chain sequences
-		for seq_entry in sequences {
-			if seq_entry.spec.name == "pl7.app/vdj/scFv-sequence" {
-				for additionalSeq in additionalSequences {
-					if additionalSeq.spec.domain["pl7.app/vdj/scClonotypeChain/index"] == "primary" {
-						for fr in ["CDR1", "CDR2", "CDR3", "FR1"] {
-							if additionalSeq.spec.domain["pl7.app/vdj/feature"] == fr {
-								chain := additionalSeq.spec.domain["pl7.app/vdj/scClonotypeChain"]
-								chainLabel := (chain == "A" ? "Heavy" : "Light")
-								seqTableBuilder.add(columnsWithSequences.getColumn(additionalSeq.key), {header: chainLabel + " " + fr + " aa"})
-								if coveredFeatures[fr] {
-									coveredFeatures[fr] += 1
-								} else {
-									coveredFeatures[fr] = 1
-								}
-							}
-						}
-					}
-				}
-			} else if seq_entry.spec.domain["pl7.app/vdj/scClonotypeChain/index"] == "primary" {
-				chain := seq_entry.spec.domain["pl7.app/vdj/scClonotypeChain"]
-				chainLabel := (chain == "A" ? "Heavy" : "Light")
-				seqTableBuilder.add(columnsWithSequences.getColumn(seq_entry.key), {header: chainLabel + " " + " sequence aa"})
+		// Score the PRIMARY-rank rearrangement of each chain type (A=Heavy,
+		// B=Light). Secondary-rank rows are filtered out (index != "primary")
+		// in both the VDJRegion and the per-region selection, so they produce
+		// null for that chain. The null rule keys on index == "secondary",
+		// never on Heavy-vs-Light.
+		for _, chain in ["A", "B"] {
+			pairs := selectPairsFor(chain)
+			if len(pairs) == 0 {
+				continue
 			}
+			chainLabel := (chain == "A" ? "Heavy" : "Light")
+			units += [{
+				id: "humannessScore" + chain,
+				table: buildUnitTable(pairs),
+				chain: chain,
+				chainLabel: chainLabel
+			}]
 		}
-		// Add primary chain annotations if they exist
-		if hasAnnotations {
-			for ann_entry in annotations {
-				if ann_entry.spec.domain["pl7.app/vdj/scClonotypeChain/index"] == "primary" {
-					chain := ann_entry.spec.domain["pl7.app/vdj/scClonotypeChain"]
-					chainLabel := (chain == "A" ? "Heavy" : "Light")
-					// Python script expects annotation columns to end with "annotations"
-					// and might derive prefix like "Heavy CDRs" or "Light CDRs"
-					seqTableBuilder.add(columnsWithSequences.getColumn(ann_entry.key), {header: chainLabel + " annotations"})
-				}
-			}
-		}
-	} else { // Bulk data handling
-		// Add the primary assembling feature sequence.
-		// Mark it in coveredFeatures so the additionalSequences loop below skips it.
-		// On imported data, CDR3 satisfies both the assembling-feature query (sequences)
-		// and the region query (additionalSequences), so without this guard the TSV
-		// builder would receive "CDR3 aa" twice and throw a duplicate-header error.
-		if len(sequences) > 0 {
-			if sequences[0].spec.domain["pl7.app/vdj/feature"] == "CDR3" {
-				seqTableBuilder.add(columnsWithSequences.getColumn(sequences[0].key), {header: "CDR3 aa"})
-				coveredFeatures["CDR3"] = 1
-			} else {
-				seqTableBuilder.add(columnsWithSequences.getColumn(sequences[0].key), {header: "sequence aa"})
-			}
-		}
-		// Add FR/CDR sequences from additionalSequences (bulk, no annotations)
-		for additionalSeq in additionalSequences {
-			for fr in ["CDR1", "CDR2", "CDR3", "FR1", "FR2", "FR3"] {
-				if additionalSeq.spec.domain["pl7.app/vdj/feature"] == fr && !coveredFeatures[fr] {
-					seqTableBuilder.add(columnsWithSequences.getColumn(additionalSeq.key), {header: fr + " aa"})
-					if coveredFeatures[fr] {
-						coveredFeatures[fr] += 1
-					} else {
-						coveredFeatures[fr] = 1
-					}
-				}
-			}
-		}
-		// Add annotations if they exist
-		if hasAnnotations {
-			// Python script expects annotation column to end with "annotations"
-			seqTableBuilder.add(columnsWithSequences.getColumn(annotations[0].key), {header: "Annotations"})
+	} else {
+		// Bulk / VHH: a single chain. Prefer the VDJRegionInFrame aa column; else
+		// assemble from this chain's per-region columns.
+		pairs := selectPairsFor(undefined)
+		if len(pairs) > 0 {
+			units += [{
+				id: "humannessScore",
+				table: buildUnitTable(pairs),
+				chain: undefined,
+				chainLabel: undefined
+			}]
 		}
 	}
 
-	seqTableBuilder.mem(string(int(math.max(16, baseMemGiB / 4))) + "GiB")
-	seqTableBuilder.cpu(1)
-	seqTable := seqTableBuilder.build()
+	// Nothing assemblable at all (neither a VDJRegion column nor any per-region
+	// FR/CDR column for any chain) => the legitimate "unscoreable" path, NOT an
+	// error. Instead of panicking we surface a non-fatal warning and emit an
+	// empty result; the run completes and the score is honestly null. A dataset
+	// that DOES provide region columns but covers <3 framework regions is NOT
+	// warned here: it yields a built unit whose per-row score is null'd by the
+	// coverage gate in the Python scorer. See spec correct-behavior §3a/§7.
+	// (TCR remains a hard reject above, per R5.)
+	warnings := []
+	if len(units) == 0 {
+		warnings += [NO_FULL_DOMAIN_WARNING]
+	}
 
-	humannessResultCalc := render.create(calculateHumannessTpl, {
-		table: seqTable
-	}, {
-		// mem only affects resource allocation, not the result, so pass it as a
-		// meta input to avoid re-executing the template when memory changes.
-		metaInputs: {
-			mem: args.mem
+	// Run the scorer once per unit, then hand all scored tables (plus their
+	// chain metadata) to a single process template that imports them into
+	// per-chain PColumns. We pass the units as a map resource keyed by unit id
+	// so the resource handles survive the render boundary. When units is empty
+	// (no full variable region), the map is empty and the process template's
+	// for-loop produces empty pFrames — a valid empty result, no crash.
+	unitsBuilder := smart.mapBuilder()
+	for unit in units {
+		humannessResultCalc := render.create(calculateHumannessTpl, {
+			table: unit.table
+		}, {
+			// mem only affects resource allocation, not the result, so pass it as
+			// a meta input to avoid re-executing the template when memory changes.
+			metaInputs: {
+				mem: args.mem
+			}
+		})
+
+		humannessResult := humannessResultCalc.output("result", 24 * 60 * 60 * 1000)
+
+		// Only carry chain metadata for single-cell; bulk has a single chainless
+		// unit. Avoid undefined values in the map resource.
+		unitValue := {
+			humannessTable: humannessResult
 		}
-	})
-
-	humannessResult := humannessResultCalc.output("result", 24 * 60 * 60 * 1000)
+		if !is_undefined(unit.chain) {
+			unitValue.chain = unit.chain
+			unitValue.chainLabel = unit.chainLabel
+		}
+		unitsBuilder.add(unit.id, unitValue)
+	}
+	unitsResource := unitsBuilder.build()
 
 	processResult := render.create(processTpl, {
-		humannessTable: humannessResult,
+		units: unitsResource,
 		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
 		params: smart.createJsonResource({
-			datasetSpec: datasetSpec
+			datasetSpec: datasetSpec,
+			isSingleCell: isSingleCell
 		})
 	}, {
 		// mem only affects resource allocation, not the result, so pass it as a
@@ -193,7 +316,12 @@ wf.body(func(args) {
 
 	return {
 		outputs: {
-			outputHumanness: outputHumanness
+			outputHumanness: outputHumanness,
+			// Non-fatal warnings (JSON array of strings; empty when scoring
+			// succeeded). The workflow-tengo SDK has no dedicated notification
+			// channel, so a regular JSON output resource is the idiomatic way to
+			// surface a non-fatal message; the model/UI reads it as a banner.
+			warnings: smart.createJsonResource(warnings)
 		},
 		exports: {
 			exportPframe: exportPframe

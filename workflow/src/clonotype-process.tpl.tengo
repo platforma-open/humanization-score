@@ -19,80 +19,37 @@ self.body(func(args) {
 	convMemGiB := string(int(math.max(16, baseMemGiB / 4))) + "GiB"
 
 	params := args.params
-	humannessTable := args.humannessTable
 	datasetSpec := params.datasetSpec
+	isSingleCell := params.isSingleCell
+
+	// One scoring unit per chain type. Bulk has a single unit (no chain split);
+	// single-cell has up to two (A=Heavy, B=Light), each scored from its OWN
+	// parquet so the "humanness_score" column name never collides across units.
+	//
+	// An EMPTY `units` map is a legitimate, non-error state: it is the
+	// "no full variable region available" path (CDR3-assembled dataset or
+	// partial-domain features) routed here by main.tpl.tengo. In that case the
+	// for-loop below adds nothing, the builders yield empty pFrames, and
+	// pframes.exportFrame of an empty frame is a valid empty result. Do NOT
+	// re-add a guard/panic here — the null/empty result + a non-fatal warning is
+	// the spec-mandated behavior (correct-behavior §3a/§7).
+	units := args.units
 
 	clonotypeKeySpec := datasetSpec.axesSpec[1]
 
-	axes := [
-		{
-			column: "clonotypeKey",
-			spec: clonotypeKeySpec
-		}
-	]
-
-	// Single output column: humanness score per clonotype.
-	columns := [
-		{
-			column: "humanness_score",
-			id: "humannessScore",
-			allowNA: true,
-			spec: {
-				name: "pl7.app/humannessScore",
-				valueType: "Double",
-				annotations: {
-					"pl7.app/label": "Humanness Score",
-					"pl7.app/description": "Promb / OASis (human-oas) humanness score in [0, 100]; fraction of 9-mers found in human antibody repertoires, rescaled. Higher = more human.",
-					"pl7.app/table/visibility": "default",
-					"pl7.app/table/orderPriority": "100",
-					"pl7.app/format": ".2~f",
-					"pl7.app/isScore": "true",
-					"pl7.app/score/rankingOrder": "decreasing",
-					"pl7.app/score/method": "promb / OASis (human-oas)"
-				}
-			}
-		}
-	]
-
-	// All columns are exported; tag blockId in domain.
-	exportColumns := []
-	for col in columns {
-		if !col.spec.domain {
-			col.spec.domain = {}
-		}
-		col.spec.domain["pl7.app/blockId"] = blockId
-		exportColumns += [col]
-	}
-
-	specs := {
-		axes: axes,
-		columns: exportColumns,
-		storageFormat: "Parquet",
-		partitionKeyLength: 0
-	}
-
-	// Convert the parquet table to PColumns once and reuse the result for
-	// both the output frame and the exported pframe.
-	importedColumns := xsv.importFile(
-		humannessTable,
-		"parquet",
-		specs,
-		{splitDataAndSpec: true, cpu: 1, mem: convMemGiB}
-	)
-
-	// Fall back to the input dataset name when the user has not set a custom label,
-	// keeping the provenance trace consistent with the block subtitle.
+	// Fall back to the input dataset name when the user has not set a custom
+	// label, keeping the provenance trace consistent with the block subtitle.
 	blockLabel := customBlockLabel
 	if blockLabel == "" {
 		if datasetSpec.annotations && datasetSpec.annotations["pl7.app/label"] {
 			blockLabel = datasetSpec.annotations["pl7.app/label"]
 		} else {
-			blockLabel = "Humanization Score"
+			blockLabel = "Humanness Score"
 		}
 	}
 
 	traceSteps := [{
-		type: "milaboratories.humanization-score",
+		type: "milaboratories.humanness-score",
 		importance: 30,
 		label: blockLabel,
 		id: blockId
@@ -103,9 +60,89 @@ self.body(func(args) {
 	outputBuilder := pframes.pFrameBuilder()
 	exportPframe := pframes.pFrameBuilder()
 
-	for k, v in importedColumns {
-		outputBuilder.add(k, v.spec, v.data)
-		exportPframe.add(k, humannessTrace.inject(v.spec), v.data)
+	// Build one humanness-score PColumn per unit and merge them into the same
+	// output / export frames. Heavy (A) sorts first via a higher orderPriority.
+	for unitId, unit in units {
+		chain := unit.chain
+		chainLabel := unit.chainLabel
+
+		label := "Humanness Score"
+		orderPriority := "100"
+		domain := {}
+		columnId := "humannessScore"
+
+		if isSingleCell {
+			label = "Humanness Score, " + chainLabel
+			columnId = "humannessScore" + chain
+			domain = {
+				"pl7.app/vdj/scClonotypeChain": chain
+			}
+			// Heavy (A) sorts before Light (B).
+			if chain != "A" {
+				orderPriority = "99"
+			}
+		}
+
+		// Tag blockId into the domain so exported columns are block-scoped.
+		domain["pl7.app/blockId"] = blockId
+
+		// SCORE SCALE (spec D5/§7): the number we emit is the raw OASis IDENTITY
+		// x100 — the fraction of overlapping 9-mer peptides found in human OAS
+		// antibody repertoires, scaled to [0, 100]. It is NOT the calibrated OASis
+		// percentile (BioPhi's interpretable "% human"), which would require
+		// BioPhi's 544-mAb calibration; promb alone cannot produce it. So our
+		// numbers are not directly comparable to BioPhi's published "% human"
+		// percentiles. The label/description below must state this honestly.
+		//
+		// The deeper promb-vs-BioPhi choice and the per-chain reference question
+		// (spec D5/D6, §3b) are intentionally left OPEN here — this is a comment
+		// only, no behavior change. The numeric computation, valueType, format,
+		// ranking, allowNA, domain, orderPriority, and per-chain logic are
+		// unchanged.
+		columnSpec := {
+			column: "humanness_score",
+			id: columnId,
+			allowNA: true,
+			spec: {
+				name: "pl7.app/humannessScore",
+				valueType: "Double",
+				domain: domain,
+				annotations: {
+					"pl7.app/label": label,
+					"pl7.app/description": "OASis identity (promb / human-oas): fraction of overlapping 9-mer peptides found in human OAS antibody repertoires, x100 (range 0-100; higher = more human). NOTE: this is the raw OASis IDENTITY, NOT the calibrated OASis percentile — it is not directly comparable to BioPhi's published '% human' percentiles.",
+					"pl7.app/table/visibility": "default",
+					"pl7.app/table/orderPriority": orderPriority,
+					"pl7.app/format": ".2~f",
+					"pl7.app/isScore": "true",
+					"pl7.app/score/rankingOrder": "decreasing",
+					"pl7.app/score/method": "promb / OASis identity (human-oas)"
+				}
+			}
+		}
+
+		specs := {
+			axes: [
+				{
+					column: "clonotypeKey",
+					spec: clonotypeKeySpec
+				}
+			],
+			columns: [columnSpec],
+			storageFormat: "Parquet",
+			partitionKeyLength: 0
+		}
+
+		importedColumns := xsv.importFile(
+			unit.humannessTable,
+			"parquet",
+			specs,
+			{splitDataAndSpec: true, cpu: 1, mem: convMemGiB}
+		)
+
+		for k, v in importedColumns {
+			outputBuilder.add(k, v.spec, v.data)
+			exportPframe.add(k, humannessTrace.inject(v.spec), v.data)
+		}
 	}
 
 	outputHumanness := outputBuilder.build()
@@ -115,5 +152,4 @@ self.body(func(args) {
 		outputHumanness: pframes.exportFrame(outputHumanness),
 		exportPframe: exportPframe
 	}
-
 })
