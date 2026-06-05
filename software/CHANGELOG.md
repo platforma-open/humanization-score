@@ -1,10 +1,10 @@
-# @platforma-open/milaboratories.humanization-score.software
+# @platforma-open/milaboratories.humanness-score.software
 
 ## 0.3.0
 
 ### Minor Changes
 
-- 5c4b4f0: Initial release of the Humanization Score block.
+- 5c4b4f0: Initial release of the Humanness Score block.
 
   Scores antibody sequences for humanness relative to natural human antibody
   repertoires using the offline OASis/SwissProt databases bundled with the

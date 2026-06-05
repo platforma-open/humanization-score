@@ -1,7 +1,7 @@
 import {
   defaultGraphStateHistogram,
   platforma,
-} from '@platforma-open/milaboratories.humanization-score.model';
+} from '@platforma-open/milaboratories.humanness-score.model';
 import { defineAppV3 } from '@platforma-sdk/ui-vue';
 import HistogramPage from './pages/HistogramPage.vue';
 import MainPage from './pages/MainPage.vue';

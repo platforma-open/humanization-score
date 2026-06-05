@@ -1,9 +1,9 @@
 ---
-"@platforma-open/milaboratories.humanization-score.software": minor
-"@platforma-open/milaboratories.humanization-score.workflow": minor
-"@platforma-open/milaboratories.humanization-score.model": minor
-"@platforma-open/milaboratories.humanization-score.ui": minor
-"@platforma-open/milaboratories.humanization-score": minor
+"@platforma-open/milaboratories.humanness-score.software": minor
+"@platforma-open/milaboratories.humanness-score.workflow": minor
+"@platforma-open/milaboratories.humanness-score.model": minor
+"@platforma-open/milaboratories.humanness-score.ui": minor
+"@platforma-open/milaboratories.humanness-score": minor
 ---
 
 Fix incorrect humanness scoring: score the full variable-region sequence per chain (antibody-only).

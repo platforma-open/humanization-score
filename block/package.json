@@ -1,5 +1,5 @@
 {
-  "name": "@platforma-open/milaboratories.humanization-score",
+  "name": "@platforma-open/milaboratories.humanness-score",
   "version": "0.3.2",
   "scripts": {
     "build": "shx rm -rf ./block-pack && block-tools pack",
@@ -12,21 +12,21 @@
     "index.js"
   ],
   "dependencies": {
-    "@platforma-open/milaboratories.humanization-score.workflow": "workspace:*",
-    "@platforma-open/milaboratories.humanization-score.model": "workspace:*",
-    "@platforma-open/milaboratories.humanization-score.ui": "workspace:*"
+    "@platforma-open/milaboratories.humanness-score.workflow": "workspace:*",
+    "@platforma-open/milaboratories.humanness-score.model": "workspace:*",
+    "@platforma-open/milaboratories.humanness-score.ui": "workspace:*"
   },
   "block": {
     "components": {
-      "workflow": "@platforma-open/milaboratories.humanization-score.workflow/dist/tengo/tpl/main.plj.gz",
-      "model": "@platforma-open/milaboratories.humanization-score.model/dist/model.json",
-      "ui": "@platforma-open/milaboratories.humanization-score.ui/dist"
+      "workflow": "@platforma-open/milaboratories.humanness-score.workflow/dist/tengo/tpl/main.plj.gz",
+      "model": "@platforma-open/milaboratories.humanness-score.model/dist/model.json",
+      "ui": "@platforma-open/milaboratories.humanness-score.ui/dist"
     },
     "meta": {
-      "title": "Humanization Score",
+      "title": "Humanness Score",
       "logo": "file:../logos/block-logo.png",
-      "url": "https://github.com/platforma-open/humanization-score",
-      "docs": "https://docs.platforma.bio/guides/antibody-discovery/humanization-score/",
+      "url": "https://github.com/platforma-open/humanness-score",
+      "docs": "https://docs.platforma.bio/guides/antibody-discovery/humanness-score/",
       "support": "mailto:support@milaboratories.com",
       "description": "Score antibody sequences for humanness relative to natural human antibody repertoires",
       "longDescription": "file:../docs/description.md",

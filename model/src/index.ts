@@ -180,11 +180,11 @@ export const platforma = BlockModelV3.create(dataModel)
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
 
-  .title(() => 'Humanization Score')
+  .title(() => 'Humanness Score')
 
   .subtitle((ctx) => {
     if (ctx.data.customBlockLabel) return ctx.data.customBlockLabel;
-    return 'Humanization Score';
+    return 'Humanness Score';
   })
 
   .sections((_) => [

@@ -89,13 +89,13 @@ importers:
 
   block:
     dependencies:
-      '@platforma-open/milaboratories.humanization-score.model':
+      '@platforma-open/milaboratories.humanness-score.model':
         specifier: workspace:*
         version: link:../model
-      '@platforma-open/milaboratories.humanization-score.ui':
+      '@platforma-open/milaboratories.humanness-score.ui':
         specifier: workspace:*
         version: link:../ui
-      '@platforma-open/milaboratories.humanization-score.workflow':
+      '@platforma-open/milaboratories.humanness-score.workflow':
         specifier: workspace:*
         version: link:../workflow
     devDependencies:
@@ -155,7 +155,7 @@ importers:
       '@milaboratories/strings':
         specifier: 'catalog:'
         version: 0.1.2
-      '@platforma-open/milaboratories.humanization-score.model':
+      '@platforma-open/milaboratories.humanness-score.model':
         specifier: workspace:*
         version: link:../model
       '@platforma-sdk/model':
@@ -189,7 +189,7 @@ importers:
 
   workflow:
     dependencies:
-      '@platforma-open/milaboratories.humanization-score.software':
+      '@platforma-open/milaboratories.humanness-score.software':
         specifier: workspace:*
         version: link:../software
       '@platforma-sdk/workflow-tengo':

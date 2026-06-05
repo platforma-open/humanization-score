@@ -3,7 +3,7 @@ exec := import("@platforma-sdk/workflow-tengo:exec")
 assets := import("@platforma-sdk/workflow-tengo:assets")
 math := import("math")
 
-humannessCalcSw := assets.importSoftware("@platforma-open/milaboratories.humanization-score.software:main")
+humannessCalcSw := assets.importSoftware("@platforma-open/milaboratories.humanness-score.software:main")
 
 self.defineOutputs("result")
 

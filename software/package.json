@@ -1,5 +1,5 @@
 {
-  "name": "@platforma-open/milaboratories.humanization-score.software",
+  "name": "@platforma-open/milaboratories.humanness-score.software",
   "version": "0.3.0",
   "scripts": {
     "build": "pl-pkg build",

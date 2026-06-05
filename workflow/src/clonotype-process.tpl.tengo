@@ -44,12 +44,12 @@ self.body(func(args) {
 		if datasetSpec.annotations && datasetSpec.annotations["pl7.app/label"] {
 			blockLabel = datasetSpec.annotations["pl7.app/label"]
 		} else {
-			blockLabel = "Humanization Score"
+			blockLabel = "Humanness Score"
 		}
 	}
 
 	traceSteps := [{
-		type: "milaboratories.humanization-score",
+		type: "milaboratories.humanness-score",
 		importance: 30,
 		label: blockLabel,
 		id: blockId

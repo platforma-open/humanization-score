@@ -1,5 +1,5 @@
 {
-  "name": "@platforma-open/milaboratories.humanization-score.model",
+  "name": "@platforma-open/milaboratories.humanness-score.model",
   "version": "0.3.2",
   "description": "Block model",
   "type": "module",

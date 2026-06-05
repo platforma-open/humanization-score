@@ -1,2 +1,2 @@
-# humanization-score
-Humanization Score Block
+# Humanness-score
+Humanness Score Block

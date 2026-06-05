@@ -2,7 +2,7 @@
 import type { PredefinedGraphOption } from '@milaboratories/graph-maker';
 import { GraphMaker } from '@milaboratories/graph-maker';
 import strings from '@milaboratories/strings';
-import { CHAIN_DOMAIN, CHAIN_HEAVY, defaultGraphStateHistogram, HUMANNESS_SCORE_COLUMN } from '@platforma-open/milaboratories.humanization-score.model';
+import { CHAIN_DOMAIN, CHAIN_HEAVY, defaultGraphStateHistogram, HUMANNESS_SCORE_COLUMN } from '@platforma-open/milaboratories.humanness-score.model';
 import { PlBlockPage } from '@platforma-sdk/ui-vue';
 import { computed } from 'vue';
 import { useApp } from '../app';
