@@ -136,16 +136,10 @@ export const platforma = BlockModelV3.create(dataModel)
       return undefined;
     }
 
-    // Phase 4 now emits up to two per-chain score columns (Heavy 'A' / Light 'B')
-    // that share `HUMANNESS_SCORE_COLUMN` and are distinguished by `CHAIN_DOMAIN`.
-    // `pCols[0]` is non-deterministic across runs, so pick the anchor explicitly:
-    // prefer the Heavy column, else the first column (bulk has a single column
-    // with no chain domain). The enrichment selector then resolves the remaining
-    // per-chain columns against the shared clonotype-key axis carried by this
-    // anchor, joining Heavy + Light into one row-per-clonotype table.
     const anchorCol
       = pCols.find((c) => c.spec.domain?.[CHAIN_DOMAIN] === CHAIN_HEAVY)
         ?? pCols[0];
+
     if (anchorCol === undefined) {
       return undefined;
     }
