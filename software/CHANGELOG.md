@@ -1,5 +1,11 @@
 # @platforma-open/milaboratories.humanness-score.software
 
+## 1.0.0
+
+### Major Changes
+
+- df6b969: Release
+
 ## 0.4.0
 
 ### Minor Changes

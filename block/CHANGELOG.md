@@ -1,5 +1,18 @@
 # @platforma-open/milaboratories.humanness-score
 
+## 1.0.0
+
+### Major Changes
+
+- df6b969: Release
+
+### Patch Changes
+
+- Updated dependencies [df6b969]
+  - @platforma-open/milaboratories.humanness-score.model@1.0.0
+  - @platforma-open/milaboratories.humanness-score.ui@1.0.0
+  - @platforma-open/milaboratories.humanness-score.workflow@1.0.0
+
 ## 0.4.0
 
 ### Minor Changes
