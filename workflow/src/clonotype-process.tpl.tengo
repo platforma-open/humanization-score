@@ -2,6 +2,9 @@ self := import("@platforma-sdk/workflow-tengo:tpl")
 xsv := import("@platforma-sdk/workflow-tengo:pframes.xsv")
 pframes := import("@platforma-sdk/workflow-tengo:pframes")
 pSpec := import("@platforma-sdk/workflow-tengo:pframes.spec")
+maps := import("@platforma-sdk/workflow-tengo:maps")
+ll := import("@platforma-sdk/workflow-tengo:ll")
+smart := import("@platforma-sdk/workflow-tengo:smart")
 math := import("math")
 
 self.defineOutputs("outputHumanness", "exportPframe")
@@ -9,8 +12,24 @@ self.defineOutputs("outputHumanness", "exportPframe")
 
 self.body(func(args) {
 
-	blockId := args.blockId
 	customBlockLabel := args.customBlockLabel
+
+	// Content tag for the exported column, replacing the per-block blockId. We use
+	// the backend's own content key of the scored table (info().CanonicalID, base32
+	// encoded). Identical scoring results across blocks therefore share the same tag
+	// — so the columns are content-identical (dedupe-friendly) instead of being made
+	// unique per block — while different results get different tags (no collision).
+	// CanonicalID is deterministic for identical content (verified: identical inputs
+	// produce the same CanonicalID across runs).
+	contentTag := func(table) {
+		i := table.info()
+		if !is_undefined(i.CanonicalID) {
+			return ll.base32Encode(i.CanonicalID)
+		}
+		// Field reference: dereference to its value resource.
+		ri := smart.resource(i.Value).info()
+		return ll.base32Encode(ri.CanonicalID)
+	}
 
 	baseMemGiB := 16
 	if !is_undefined(args.mem) {
@@ -18,8 +37,10 @@ self.body(func(args) {
 	}
 	convMemGiB := string(int(math.max(16, baseMemGiB / 4))) + "GiB"
 
+	// main.tpl.tengo forwards only the slices of datasetSpec this template needs
+	// (the clonotype-key axis spec, the dataset's fallback label, and the trace
+	// annotation), so an unrelated change in datasetSpec does not bust this cache.
 	params := args.params
-	datasetSpec := params.datasetSpec
 	isSingleCell := params.isSingleCell
 
 	// One scoring unit per chain type. Bulk has a single unit (no chain split);
@@ -35,27 +56,31 @@ self.body(func(args) {
 	// the spec-mandated behavior (correct-behavior §3a/§7).
 	units := args.units
 
-	clonotypeKeySpec := datasetSpec.axesSpec[1]
+	clonotypeKeySpec := params.clonotypeKeySpec
 
 	// Fall back to the input dataset name when the user has not set a custom
 	// label, keeping the provenance trace consistent with the block subtitle.
 	blockLabel := customBlockLabel
 	if blockLabel == "" {
-		if datasetSpec.annotations && datasetSpec.annotations["pl7.app/label"] {
-			blockLabel = datasetSpec.annotations["pl7.app/label"]
-		} else {
+		blockLabel = params.datasetLabel
+		if blockLabel == "" {
 			blockLabel = "Humanness Score"
 		}
 	}
 
+	// The trace step is no longer keyed on blockId (the block is no longer the
+	// identity of the score; its content is). `id` is optional in the trace schema;
+	// omitting it keeps the provenance step identical across content-identical runs.
 	traceSteps := [{
 		type: "milaboratories.humanness-score",
 		importance: 30,
-		label: blockLabel,
-		id: blockId
+		label: blockLabel
 	}]
 
-	humannessTrace := pSpec.makeTrace(datasetSpec, traceSteps...)
+	// makeTrace seeds the provenance chain from the input's "pl7.app/trace"
+	// annotation only; main forwards just that annotation wrapped in a minimal
+	// stub. An empty stub ({}) yields a fresh (empty) trace, same as before.
+	humannessTrace := pSpec.makeTrace({ annotations: params.traceAnnotations }, traceSteps...)
 
 	outputBuilder := pframes.pFrameBuilder()
 	exportPframe := pframes.pFrameBuilder()
@@ -83,51 +108,38 @@ self.body(func(args) {
 			}
 		}
 
-		// Tag blockId into the domain so exported columns are block-scoped.
-		domain["pl7.app/blockId"] = blockId
+		// Content-address the column by the canonical id of its scored data instead
+		// of scoping it to the block instance: identical results across blocks unify
+		// (dedupe), different results stay distinct (no collision).
+		domain["pl7.app/blockId"] = contentTag(unit.humannessTable)
 
-		// SCORE SCALE (spec D5/§7): the number we emit is the raw OASis IDENTITY
-		// x100 — the fraction of overlapping 9-mer peptides found in human OAS
-		// antibody repertoires, scaled to [0, 100]. It is NOT the calibrated OASis
-		// percentile (BioPhi's interpretable "% human"), which would require
-		// BioPhi's 544-mAb calibration; promb alone cannot produce it. So our
-		// numbers are not directly comparable to BioPhi's published "% human"
-		// percentiles. The label/description below must state this honestly.
-		//
-		// The deeper promb-vs-BioPhi choice and the per-chain reference question
-		// (spec D5/D6, §3b) are intentionally left OPEN here — this is a comment
-		// only, no behavior change. The numeric computation, valueType, format,
-		// ranking, allowNA, domain, orderPriority, and per-chain logic are
-		// unchanged.
-		columnSpec := {
-			column: "humanness_score",
-			id: columnId,
-			allowNA: true,
-			spec: {
-				name: "pl7.app/humannessScore",
-				valueType: "Double",
-				domain: domain,
-				annotations: {
-					"pl7.app/label": label,
-					"pl7.app/description": "OASis identity (promb / human-oas): fraction of overlapping 9-mer peptides found in human OAS antibody repertoires, x100 (range 0-100; higher = more human). NOTE: this is the raw OASis IDENTITY, NOT the calibrated OASis percentile — it is not directly comparable to BioPhi's published '% human' percentiles.",
-					"pl7.app/table/visibility": "default",
-					"pl7.app/table/orderPriority": orderPriority,
-					"pl7.app/format": ".2~f",
-					"pl7.app/isScore": "true",
-					"pl7.app/score/rankingOrder": "decreasing",
-					"pl7.app/score/method": "promb / OASis identity (human-oas)"
-				}
-			}
+		annotations := {
+			"pl7.app/label": label,
+			"pl7.app/description": "OASis identity (promb / human-oas): fraction of overlapping 9-mer peptides found in human OAS antibody repertoires, x100 (range 0-100; higher = more human). NOTE: this is the raw OASis IDENTITY, NOT the calibrated OASis percentile — it is not directly comparable to BioPhi's published '% human' percentiles.",
+			"pl7.app/table/visibility": "default",
+			"pl7.app/table/orderPriority": orderPriority,
+			"pl7.app/format": ".2~f",
+			"pl7.app/isScore": "true",
+			"pl7.app/score/rankingOrder": "decreasing",
+			"pl7.app/score/method": "promb / OASis identity (human-oas)"
 		}
 
-		specs := {
+		importSpecs := {
 			axes: [
 				{
 					column: "clonotypeKey",
 					spec: clonotypeKeySpec
 				}
 			],
-			columns: [columnSpec],
+			columns: [{
+				column: "humanness_score",
+				id: columnId,
+				allowNA: true,
+				spec: {
+					name: "pl7.app/humannessScore",
+					valueType: "Double"
+				}
+			}],
 			storageFormat: "Parquet",
 			partitionKeyLength: 0
 		}
@@ -135,13 +147,17 @@ self.body(func(args) {
 		importedColumns := xsv.importFile(
 			unit.humannessTable,
 			"parquet",
-			specs,
+			importSpecs,
 			{splitDataAndSpec: true, cpu: 1, mem: convMemGiB}
 		)
 
 		for k, v in importedColumns {
-			outputBuilder.add(k, v.spec, v.data)
-			exportPframe.add(k, humannessTrace.inject(v.spec), v.data)
+			fullSpec := maps.deepMerge(v.spec, {
+				domain: domain,
+				annotations: annotations
+			})
+			outputBuilder.add(k, fullSpec, v.data)
+			exportPframe.add(k, humannessTrace.inject(fullSpec), v.data)
 		}
 	}
 
