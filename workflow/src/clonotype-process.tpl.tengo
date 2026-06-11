@@ -111,7 +111,7 @@ self.body(func(args) {
 		// Content-address the column by the canonical id of its scored data instead
 		// of scoping it to the block instance: identical results across blocks unify
 		// (dedupe), different results stay distinct (no collision).
-		domain["pl7.app/blockId"] = contentTag(unit.humannessTable)
+		domain["pl7.app/contentTag"] = contentTag(unit.humannessTable)
 
 		annotations := {
 			"pl7.app/label": label,
