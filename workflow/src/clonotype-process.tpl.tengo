@@ -21,7 +21,7 @@ self.body(func(args) {
 	// unique per block — while different results get different tags (no collision).
 	// CanonicalID is deterministic for identical content (verified: identical inputs
 	// produce the same CanonicalID across runs).
-	contentTag := func(table) {
+	contentHash := func(table) {
 		i := table.info()
 		if !is_undefined(i.CanonicalID) {
 			return ll.base32Encode(i.CanonicalID)
@@ -111,7 +111,7 @@ self.body(func(args) {
 		// Content-address the column by the canonical id of its scored data instead
 		// of scoping it to the block instance: identical results across blocks unify
 		// (dedupe), different results stay distinct (no collision).
-		domain["pl7.app/contentTag"] = contentTag(unit.humannessTable)
+		domain["pl7.app/contentHash"] = contentHash(unit.humannessTable)
 
 		annotations := {
 			"pl7.app/label": label,
