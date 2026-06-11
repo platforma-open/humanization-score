@@ -1,5 +1,6 @@
 ---
 "@platforma-open/milaboratories.humanness-score.workflow": minor
+"@platforma-open/milaboratories.humanness-score.model": minor
 ---
 
 Content-address the exported humanness-score column instead of scoping it to the block instance.
