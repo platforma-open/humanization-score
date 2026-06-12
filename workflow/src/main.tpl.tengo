@@ -83,8 +83,6 @@ wf.prepare(func(args) {
 
 wf.body(func(args) {
 
-	blockId := wf.blockId().getDataAsJson()
-
 	columnsWithSequences := args.columns
 	datasetSpec := columnsWithSequences.getSpec(args.inputAnchor)
 
@@ -295,13 +293,26 @@ wf.body(func(args) {
 	}
 	unitsResource := unitsBuilder.build()
 
+	clonotypeKeySpec := datasetSpec.axesSpec[1]
+	datasetLabel := ""
+	traceAnnotations := {}
+	if !is_undefined(datasetSpec.annotations) {
+		if !is_undefined(datasetSpec.annotations["pl7.app/label"]) {
+			datasetLabel = datasetSpec.annotations["pl7.app/label"]
+		}
+		if !is_undefined(datasetSpec.annotations["pl7.app/trace"]) {
+			traceAnnotations = { "pl7.app/trace": datasetSpec.annotations["pl7.app/trace"] }
+		}
+	}
+
 	processResult := render.create(processTpl, {
 		units: unitsResource,
-		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
 		params: smart.createJsonResource({
-			datasetSpec: datasetSpec,
-			isSingleCell: isSingleCell
+			clonotypeKeySpec: clonotypeKeySpec,
+			isSingleCell: isSingleCell,
+			datasetLabel: datasetLabel,
+			traceAnnotations: traceAnnotations
 		})
 	}, {
 		// mem only affects resource allocation, not the result, so pass it as a

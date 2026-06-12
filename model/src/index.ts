@@ -41,7 +41,7 @@ export const HUMANNESS_SCORE_COLUMN = 'pl7.app/humannessScore';
 // Domain key carried by single-cell per-chain score columns. Value is the
 // chain TYPE: 'A' = Heavy, 'B' = Light (matches the upstream producer's
 // `pl7.app/vdj/scClonotypeChain` convention). Bulk columns have no
-// scClonotypeChain domain key (they still carry pl7.app/blockId).
+// scClonotypeChain domain key (they still carry pl7.app/contentTag).
 export const CHAIN_DOMAIN = 'pl7.app/vdj/scClonotypeChain';
 export const CHAIN_HEAVY = 'A';
 export const CHAIN_LIGHT = 'B';
