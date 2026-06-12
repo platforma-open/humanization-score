@@ -1,5 +1,12 @@
 # @platforma-open/milaboratories.humanness-score.ui
 
+## 1.0.1
+
+### Patch Changes
+
+- Updated dependencies [eb8103c]
+  - @platforma-open/milaboratories.humanness-score.model@1.1.0
+
 ## 1.0.0
 
 ### Major Changes
