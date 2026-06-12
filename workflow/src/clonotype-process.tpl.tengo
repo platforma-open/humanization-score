@@ -27,7 +27,13 @@ self.body(func(args) {
 			return ll.base32Encode(i.CanonicalID)
 		}
 		// Field reference: dereference to its value resource.
+		if is_undefined(i.Value) {
+			ll.panic("contentHash: resource has neither CanonicalID nor Value")
+		}
 		ri := smart.resource(i.Value).info()
+		if is_undefined(ri.CanonicalID) {
+			ll.panic("contentHash: dereferenced value resource has no CanonicalID")
+		}
 		return ll.base32Encode(ri.CanonicalID)
 	}
 
