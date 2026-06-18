@@ -83,6 +83,8 @@ wf.prepare(func(args) {
 
 wf.body(func(args) {
 
+	blockId := wf.blockId().getDataAsJson()
+
 	columnsWithSequences := args.columns
 	datasetSpec := columnsWithSequences.getSpec(args.inputAnchor)
 
@@ -307,6 +309,7 @@ wf.body(func(args) {
 
 	processResult := render.create(processTpl, {
 		units: unitsResource,
+		blockId: blockId,
 		customBlockLabel: args.customBlockLabel,
 		params: smart.createJsonResource({
 			clonotypeKeySpec: clonotypeKeySpec,
