@@ -27,8 +27,6 @@ const tableSettings = usePlDataTableSettingsV2({
   model: () => app.model.outputs.pt,
 });
 
-// Coverage warnings (computed up front, also block the run) plus any non-fatal
-// warnings the workflow emitted (e.g. no assemblable variable region).
 const warnings = computed<string[]>(() => [
   ...(app.model.outputs.coverageWarnings ?? []),
   ...(app.model.outputs.warnings ?? []),

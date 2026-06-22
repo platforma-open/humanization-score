@@ -11,6 +11,7 @@ import {
   createPlDataTableStateV2,
   createPlDataTableV3,
 } from '@platforma-sdk/model';
+import { computeCoverageWarnings } from './coverage';
 export type * from '@milaboratories/helpers';
 
 type OldArgs = {
@@ -50,18 +51,6 @@ export const CHAIN_HEAVY = 'A';
 export const CHAIN_LIGHT = 'B';
 
 const SEQUENCE_COLUMN = 'pl7.app/vdj/sequence';
-const FEATURE_DOMAIN = 'pl7.app/vdj/feature';
-const FRAMEWORK_FEATURES = ['FR1', 'FR2', 'FR3', 'FR4'];
-const MIN_FRAMEWORK_REGIONS = 3;
-
-const insufficientFrameworksMessage = (chainLabel: string | undefined, n: number): string => {
-  const where = chainLabel ? ` (${chainLabel} chain)` : '';
-  return `Humanness scoring needs a variable region covering at least ${MIN_FRAMEWORK_REGIONS} `
-    + `of the 4 framework regions, but this dataset's variable region${where} covers only ${n}. `
-    + `This usually means clonotypes were assembled by a short feature such as CDR1:CDR3 `
-    + `(FR2+FR3 only); the score cannot be computed. Re-run clonotyping with full (VDJRegion) `
-    + `or partial (>=${MIN_FRAMEWORK_REGIONS} framework) variable-region assembly.`;
-};
 
 export const defaultGraphStateHistogram = (): GraphMakerState => ({
   title: 'Humanness Score Distribution',
@@ -132,10 +121,9 @@ const dataModel = new DataModelBuilder()
 export const platforma = BlockModelV3.create(dataModel)
 
   .args((data) => {
-    if (!data.inputAnchor) throw new Error('Input anchor is required');
-    if (data.coverageWarnings && data.coverageWarnings.length > 0) {
-      throw new Error(data.coverageWarnings[0]);
-    }
+    if (data.inputAnchor == null) throw new Error('Input anchor is required');
+    if (data.coverageWarnings == null) throw new Error('Computing coverage');
+    if (data.coverageWarnings.length > 0) throw new Error(data.coverageWarnings[0]);
 
     return {
       // Empty when unset; the workflow falls back to the input dataset name so
@@ -192,9 +180,9 @@ export const platforma = BlockModelV3.create(dataModel)
     ctx.outputs?.resolve('warnings')?.getDataAsJson<string[]>() ?? [],
   )
 
-  .output('coverageWarnings', (ctx): string[] => {
+  .output('coverageWarnings', (ctx): null | string[] => {
     const anchor = ctx.data.inputAnchor;
-    if (!anchor) return [];
+    if (anchor == null) return null;
 
     const cols = ctx.resultPool.getAnchoredPColumns(
       { main: anchor },
@@ -206,32 +194,13 @@ export const platforma = BlockModelV3.create(dataModel)
         matchStrategy: 'expectMultiple',
       },
     );
-    if (cols === undefined || cols.length === 0) return [];
 
-    const featuresByChain = new Map<string | undefined, Set<string>>();
-    for (const col of cols) {
-      const domain = col.spec.domain ?? {};
-      const index = domain[`${CHAIN_DOMAIN}/index`];
-      if (index !== undefined && index !== 'primary') continue;
-      const feature = domain[FEATURE_DOMAIN];
-      if (!feature) continue;
-      const chain = domain[CHAIN_DOMAIN];
-      let set = featuresByChain.get(chain);
-      if (!set) featuresByChain.set(chain, (set = new Set()));
-      set.add(feature);
-    }
+    if (cols == null || cols.length === 0) return [];
 
-    const warnings: string[] = [];
-    for (const [chain, features] of featuresByChain) {
-      if (features.has('VDJRegionInFrame')) continue;
-      let frameworks = FRAMEWORK_FEATURES.filter((f) => features.has(f)).length;
-      if (features.has('FR4InFrame') && !features.has('FR4')) frameworks += 1;
-      if (frameworks < MIN_FRAMEWORK_REGIONS) {
-        const label = chain === CHAIN_HEAVY ? 'Heavy' : chain === CHAIN_LIGHT ? 'Light' : undefined;
-        warnings.push(insufficientFrameworksMessage(label, frameworks));
-      }
-    }
-    return warnings;
+    return computeCoverageWarnings(cols, CHAIN_DOMAIN, {
+      [CHAIN_HEAVY]: 'Heavy',
+      [CHAIN_LIGHT]: 'Light',
+    });
   })
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
