@@ -27,14 +27,6 @@ const tableSettings = usePlDataTableSettingsV2({
   model: () => app.model.outputs.pt,
 });
 
-// Mirror the resultPool-derived coverage verdict into data so `args` can block
-// the run (args has no resultPool). See model index.ts.
-watch(
-  () => app.model.outputs.coverageWarnings,
-  (w) => { app.model.data.coverageWarnings = w ?? []; },
-  { immediate: true },
-);
-
 // Coverage warnings (computed up front, also block the run) plus any non-fatal
 // warnings the workflow emitted (e.g. no assemblable variable region).
 const warnings = computed<string[]>(() => [
