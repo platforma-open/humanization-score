@@ -5,16 +5,6 @@
 // amino-acid sequence columns available in the result pool, whether a dataset
 // clears that bar — so the run can be blocked up front for under-covered
 // inputs (e.g. clonotypes assembled by a short feature such as CDR1:CDR3).
-//
-// Why not just count which FR columns exist? The upstream producer exports a
-// per-region column for EVERY standard region (FR1..FR4, CDR1..CDR3)
-// regardless of how clonotypes were actually assembled — the columns outside
-// the assembling feature simply hold no data. So column presence is identical
-// for a full VDJRegion dataset and a CDR1:CDR3 one and tells us nothing. The
-// honest signal is the assembling feature itself: the widest contiguous span
-// present per chain (e.g. "VDJRegionInFrame" for full, "{CDR1Begin:CDR3End}"
-// for CDR1:CDR3). We count only the framework regions fully inside that span.
-
 export const FEATURE_DOMAIN = 'pl7.app/vdj/feature';
 export const MIN_FRAMEWORK_REGIONS = 3;
 
