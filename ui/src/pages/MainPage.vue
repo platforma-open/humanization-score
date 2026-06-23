@@ -27,10 +27,10 @@ const tableSettings = usePlDataTableSettingsV2({
   model: () => app.model.outputs.pt,
 });
 
-// Non-fatal warnings emitted by the workflow (e.g. "no full variable region
-// (VDJRegion) available" when the dataset was assembled by CDR3). The run still
-// completes with a null score; we surface the reason here instead of failing.
-const warnings = computed<string[]>(() => app.model.outputs.warnings ?? []);
+const warnings = computed<string[]>(() => [
+  ...(app.model.outputs.coverageWarnings ?? []),
+  ...(app.model.outputs.warnings ?? []),
+]);
 
 const settingsIsShown = ref(app.model.data.inputAnchor === undefined);
 

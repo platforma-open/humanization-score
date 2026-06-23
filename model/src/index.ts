@@ -11,6 +11,7 @@ import {
   createPlDataTableStateV2,
   createPlDataTableV3,
 } from '@platforma-sdk/model';
+import { computeCoverageWarnings } from './coverage';
 export type * from '@milaboratories/helpers';
 
 type OldArgs = {
@@ -31,6 +32,9 @@ export type BlockData = {
   tableState: PlDataTableStateV2;
   // Distribution of the per-clonotype humanness score across the whole dataset.
   graphStateHistogram: GraphMakerState;
+  // Derived in the `coverageWarnings` output and mirrored here by the UI so
+  // `args` (no resultPool access) can block the run. Not user input.
+  coverageWarnings?: string[];
 };
 
 // Humanness score column name emitted by `clonotype-process.tpl.tengo`.
@@ -45,6 +49,8 @@ export const HUMANNESS_SCORE_COLUMN = 'pl7.app/humannessScore';
 export const CHAIN_DOMAIN = 'pl7.app/vdj/scClonotypeChain';
 export const CHAIN_HEAVY = 'A';
 export const CHAIN_LIGHT = 'B';
+
+const SEQUENCE_COLUMN = 'pl7.app/vdj/sequence';
 
 export const defaultGraphStateHistogram = (): GraphMakerState => ({
   title: 'Humanness Score Distribution',
@@ -115,7 +121,9 @@ const dataModel = new DataModelBuilder()
 export const platforma = BlockModelV3.create(dataModel)
 
   .args((data) => {
-    if (!data.inputAnchor) throw new Error('Input anchor is required');
+    if (data.inputAnchor == null) throw new Error('Input anchor is required');
+    if (data.coverageWarnings == null) throw new Error('Computing coverage');
+    if (data.coverageWarnings.length > 0) throw new Error(data.coverageWarnings[0]);
 
     return {
       // Empty when unset; the workflow falls back to the input dataset name so
@@ -171,6 +179,29 @@ export const platforma = BlockModelV3.create(dataModel)
   .output('warnings', (ctx) =>
     ctx.outputs?.resolve('warnings')?.getDataAsJson<string[]>() ?? [],
   )
+
+  .output('coverageWarnings', (ctx): null | string[] => {
+    const anchor = ctx.data.inputAnchor;
+    if (anchor == null) return null;
+
+    const cols = ctx.resultPool.getAnchoredPColumns(
+      { main: anchor },
+      {
+        axes: [{ anchor: 'main', idx: 1 }],
+        name: SEQUENCE_COLUMN,
+        domain: { 'pl7.app/alphabet': 'aminoacid' },
+        partialAxesMatch: true,
+        matchStrategy: 'expectMultiple',
+      },
+    );
+
+    if (cols == null || cols.length === 0) return [];
+
+    return computeCoverageWarnings(cols, CHAIN_DOMAIN, {
+      [CHAIN_HEAVY]: 'Heavy',
+      [CHAIN_LIGHT]: 'Light',
+    });
+  })
 
   .output('isRunning', (ctx) => ctx.outputs?.getIsReadyOrError() === false)
 
