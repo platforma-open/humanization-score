@@ -1,5 +1,11 @@
 # @platforma-open/milaboratories.humanness-score.software
 
+## 1.0.1
+
+### Patch Changes
+
+- d0db67e: Fix null humanness scores on germline-imputed sequences
+
 ## 1.0.0
 
 ### Major Changes
