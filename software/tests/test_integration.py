@@ -115,6 +115,32 @@ def test_humanness_returns_none_for_na_sentinels():
     assert m.humanness("EVQLVESGG2GLVQPGG") is None  # stray digit
 
 
+def test_humanness_scores_germline_imputed_lowercase_residues():
+    """MiXCR emits germline-imputed residues in lowercase; they must be scored.
+
+    Regression for the "all scores null on germline-imputed datasets" bug: an
+    imputed VDJRegion carries lowercase flanks (imputed FR1/FR4) around an
+    uppercase observed core. Before the fix the lowercase letters failed the
+    amino-acid alphabet guard and every such row scored null.
+    """
+    # Real reproduction case from a germline-imputed llama VHH dataset: lowercase
+    # imputed FR1 + uppercase observed core + lowercase imputed FR4.
+    imputed_vdj = (
+        "evqlvesggglvqpggslrlscaasGFTFSAYWMNWVRQAPGKGLEWVANIKEDGSEKNYVDSVKGRFT"
+        "ISRDNAESSLYLQMNSLRTEDTAVYYCAKTLRGSQLGVDYWgqgtlvtvss"
+    )
+    score = m.humanness(imputed_vdj)
+    assert score is not None
+    assert 0.0 <= score <= 100.0
+    # Case is not information: the score depends on residue identity only.
+    assert score == m.humanness(imputed_vdj.upper())
+
+
+def test_humanness_case_insensitive():
+    """A fully lowercase sequence scores identically to its uppercase form."""
+    assert m.humanness(TRASTUZUMAB_VH.lower()) == m.humanness(TRASTUZUMAB_VH)
+
+
 # ---------- Contract: exactly one sequence column ----------
 
 
@@ -216,6 +242,30 @@ def test_assemble_full_seven_regions_canonical_order():
     }
     expected = "".join(row[c] for c in _REGION_COLS)
     score = m.assemble_and_score(row, _REGION_COLS)
+    assert score == m.humanness(expected)
+
+
+def test_assemble_counts_lowercase_imputed_flanks_as_present():
+    """Germline-imputed FR1/FR4 arrive lowercase; they must count as present.
+
+    Regression for the assembled path of the same casing bug: with FR1 and FR4
+    lowercase (imputed), the coverage gate previously saw only FR2/FR3 (2 FRs)
+    and nulled the row. The flanks are real amino acids and must count, giving 4
+    frameworks in a contiguous FR1->FR4 run.
+    """
+    row = {
+        "FR1 aa": "evqlvesggg",  # imputed germline flank -> lowercase
+        "CDR1 aa": "LVQPGGSLRL",
+        "FR2 aa": "SCAASGFNIK",
+        "CDR2 aa": "DTYIHWVRQA",
+        "FR3 aa": "PGKGLEWVAR",
+        "CDR3 aa": "IYPTNGYTRY",
+        "FR4 aa": "adsvkgrfti",  # imputed germline flank -> lowercase
+    }
+    score = m.assemble_and_score(row, _REGION_COLS)
+    assert score is not None
+    # Score is on residue identity, not case: equals scoring the uppercase concat.
+    expected = "".join(row[c] for c in _REGION_COLS).upper()
     assert score == m.humanness(expected)
 
 
