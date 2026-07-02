@@ -48,9 +48,12 @@ import polars as pl
 # than this cannot produce a single 9-mer and are unscoreable.
 _MIN_WINDOW = 9
 
-# The 20 standard amino acids plus X (ambiguous). Upstream emits uppercase
-# amino-acid sequences; any other character (underscore, "*", "-", digits)
-# marks an NA/sentinel value (e.g. "region_not_covered") that must not be scored.
+# The 20 standard amino acids plus X (ambiguous), uppercase. Sequences are
+# uppercased before this membership test, so it accepts both observed residues
+# (emitted uppercase) and germline-imputed residues (which MiXCR emits in
+# lowercase to mark them as not read-observed). Any other character (underscore,
+# "*", "-", digits) marks an NA/sentinel value (e.g. "region_not_covered") that
+# must not be scored — those survive uppercasing and are still rejected.
 _AA_ALPHABET = frozenset("ACDEFGHIKLMNPQRSTVWYX")
 
 # Key columns that are carried through to the output unchanged. Anything matching
@@ -89,9 +92,15 @@ def humanness(seq: str | None) -> float | None:
     upstream NA/sentinel markers (e.g. "region_not_covered" for uncovered
     regions, stop-codon "*", gap "-"), which arrive as literal column values
     and must NOT be scored as if they were sequences.
+
+    The sequence is uppercased first: MiXCR emits germline-imputed residues in
+    lowercase (to mark them as not read-observed), but they are valid amino acids
+    that must be scored — imputing FR1/FR4 to obtain a full variable region is
+    precisely why they are present. promb also expects uppercase input.
     """
     if not isinstance(seq, str) or len(seq) < _MIN_WINDOW:
         return None
+    seq = seq.upper()
     if not set(seq) <= _AA_ALPHABET:
         return None
     try:
@@ -134,10 +143,11 @@ def _is_real_aa(value: str | None) -> bool:
     """True if `value` is a real amino-acid subsequence (not a null/sentinel).
 
     Mirrors the validity test in `humanness()`: a non-empty string drawn from the
-    amino-acid alphabet. Sentinels ("region_not_covered", "*", "-", empty) are
+    amino-acid alphabet (uppercased first, so germline-imputed lowercase residues
+    count as present). Sentinels ("region_not_covered", "*", "-", empty) are
     NOT real AA and count as absent for coverage purposes.
     """
-    return isinstance(value, str) and len(value) >= 1 and set(value) <= _AA_ALPHABET
+    return isinstance(value, str) and len(value) >= 1 and set(value.upper()) <= _AA_ALPHABET
 
 
 def identify_sequence_column(columns: list[str]) -> str:
