@@ -1,5 +1,11 @@
 # @platforma-open/milaboratories.humanness-score
 
+## 1.0.5
+
+### Patch Changes
+
+- 2ea5d4c: Fix release publishing: pass the now-required `--registry-serve-url` to `block-tools publish`. block-tools 2.11.4+ made this option mandatory, so the previous publish command failed with "required option '--registry-serve-url <url>' not specified".
+
 ## 1.0.4
 
 ### Patch Changes
