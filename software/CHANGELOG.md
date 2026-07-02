@@ -1,5 +1,11 @@
 # @platforma-open/milaboratories.humanness-score.software
 
+## 1.0.2
+
+### Patch Changes
+
+- 1e3657d: Unblock Pipeline
+
 ## 1.0.1
 
 ### Patch Changes
