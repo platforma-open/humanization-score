@@ -76,6 +76,8 @@ Yes. The method is alignment-free and format-agnostic. Single-domain formats suc
 
 ## References:
 
+If you use this block in your research, please cite the OASis method and the OAS database:
+
 > Prihoda, D., Maamary, J., Waight, A., Juan, V., Fayadat-Dilman, L., Svozil, D., & Bitton, D. A. (2022). BioPhi: A platform for antibody design, humanization, and humanness evaluation based on natural antibody repertoires and deep learning. *mAbs* **14**(1), 2020203. [https://doi.org/10.1080/19420862.2021.2020203](https://doi.org/10.1080/19420862.2021.2020203)
 
 > Olsen, T. H., Boyles, F., & Deane, C. M. (2022). Observed Antibody Space: A diverse database of cleaned, annotated, and translated unpaired and paired antibody sequences. *Protein Science* **31**(1), 141–146. [https://doi.org/10.1002/pro.4205](https://doi.org/10.1002/pro.4205)
