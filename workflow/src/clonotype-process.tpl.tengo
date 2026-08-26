@@ -47,10 +47,17 @@ self.body(func(args) {
 	// (the clonotype-key axis spec, the dataset's fallback label, and the trace
 	// annotation), so an unrelated change in datasetSpec does not bust this cache.
 	params := args.params
-	isSingleCell := params.isSingleCell
+
+	// Whether the input carried its chains side by side in one frame, separated by the
+	// pl7.app/vdj/scClonotypeChain COLUMN domain — single-cell, or a paired bare receptor set
+	// imported by import-vdj-data. Decided in main.tpl.tengo from the columns, not from the
+	// key axis name, because a paired bare set keys on pl7.app/variantKey while carrying the
+	// same chain domain. When it is false the dataset is bulk-shaped and gets one chainless
+	// unit — which is also the right answer for a SINGLE-chain bare set.
+	perChain := params.perChain
 
 	// One scoring unit per chain type. Bulk has a single unit (no chain split);
-	// single-cell has up to two (A=Heavy, B=Light), each scored from its OWN
+	// a per-chain input has up to two (A=Heavy, B=Light), each scored from its OWN
 	// parquet so the "humanness_score" column name never collides across units.
 	//
 	// An EMPTY `units` map is a legitimate, non-error state: it is the
@@ -102,7 +109,7 @@ self.body(func(args) {
 		domain := {}
 		columnId := "humannessScore"
 
-		if isSingleCell {
+		if perChain {
 			label = "Humanness Score, " + chainLabel
 			columnId = "humannessScore" + chain
 			domain = {

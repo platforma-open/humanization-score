@@ -29,6 +29,12 @@ NO_FULL_DOMAIN_WARNING := "Humanness scoring needs a contiguous variable-region 
 // whose repertoire (OAS) contains no TCR data. This stays a fatal ll.panic.
 TCR_MESSAGE := "Humanness scoring applies to antibodies only; TCR input is not supported."
 
+// A dataset keyed on pl7.app/variantKey by a producer we do not recognise. Named rather than
+// absorbed into the nearest branch: the axis is shared vocabulary and the run-id key in its
+// domain is what says who produced it, so an unknown run-id is an unknown data shape and
+// guessing at it is how a peptide set ends up being scored as an antibody.
+UNKNOWN_PRODUCER_MESSAGE := "This dataset is keyed on pl7.app/variantKey but carries no producer run-id this block recognises. Humanness scoring accepts receptor sets stamped with pl7.app/vdj/clonotypingRunId (imported antibody sets from Import VDJ Data); peptide and amplicon sets are not scoreable."
+
 // Prepare phase of the workflow - collects and sets up required data
 wf.prepare(func(args) {
 
@@ -91,21 +97,42 @@ wf.body(func(args) {
 		baseMemGiB = args.mem
 	}
 
-	// Determine if we're working with single cell data.
-	isSingleCell := datasetSpec.axesSpec[1].name == "pl7.app/vdj/scClonotypeKey"
-
-	// The clonotype-key axis carries the Ig/TCR domain. Reject TCR fast.
 	keyAxisSpec := datasetSpec.axesSpec[1]
-	if isSingleCell {
-		receptor := keyAxisSpec.domain["pl7.app/vdj/receptor"]
+	keyAxisDomain := is_undefined(keyAxisSpec.domain) ? {} : keyAxisSpec.domain
+
+	// The legacy single-cell key axis. Kept as its own name because it is only ONE of the
+	// two shapes that carry both chains in one frame — see perChain below, which is what the
+	// rest of this body branches on.
+	isSingleCell := keyAxisSpec.name == "pl7.app/vdj/scClonotypeKey"
+
+	// MODALITY comes from the run-id key on the key axis, never from the axis name.
+	// `pl7.app/variantKey` is shared vocabulary; three producers key on it and only the
+	// run-id in its domain says which:
+	//
+	//   pl7.app/peptide/extractionRunId      peptide-extraction              -> peptides
+	//   pl7.app/repertoire/extractionRunId   synthetic-repertoire-profiler   -> amplicons
+	//   pl7.app/vdj/clonotypingRunId         import-vdj-data, bare set       -> receptors
+	//
+	// The model's selectors already keep the first two out of the dropdown (neither stamps
+	// pl7.app/vdj/receptor on the axis). This is the backstop, and it REFUSES an unrecognised
+	// producer naming the accepted ones rather than falling through to the nearest branch —
+	// falling through is what sent bare sets down peptide paths in four other blocks.
+	if keyAxisSpec.name == "pl7.app/variantKey" &&
+		is_undefined(keyAxisDomain["pl7.app/vdj/clonotypingRunId"]) {
+		ll.panic(UNKNOWN_PRODUCER_MESSAGE)
+	}
+
+	// Ig only (spec R5). Where the receptor is stated on the key axis — single-cell, and a
+	// bare imported set — read it there. A bulk clonotypeKey axis names the CHAIN instead,
+	// using the producer's chainInfos KEYS rather than the mixcr filter values:
+	// IG = "IGHeavy"/"IGLight", TCR = "TCRAlpha"/"TCRBeta"/"TCRGamma"/"TCRDelta".
+	receptor := keyAxisDomain["pl7.app/vdj/receptor"]
+	if !is_undefined(receptor) {
 		if receptor != "IG" {
 			ll.panic(TCR_MESSAGE)
 		}
 	} else {
-		// The producer sets this axis-domain to the chainInfos KEYS, not the
-		// mixcr filter values: IG = "IGHeavy"/"IGLight", TCR = "TCRAlpha"/
-		// "TCRBeta"/"TCRGamma"/"TCRDelta". Accept only the IG keys.
-		chain := keyAxisSpec.domain["pl7.app/vdj/chain"]
+		chain := keyAxisDomain["pl7.app/vdj/chain"]
 		if !(chain == "IGHeavy" || chain == "IGLight") {
 			ll.panic(TCR_MESSAGE)
 		}
@@ -113,13 +140,45 @@ wf.body(func(args) {
 
 	vdjRegions := columnsWithSequences.getColumns("vdjRegions")
 
-	// For single-cell data: keep only primary chains AND order them
+	rawFeatureColumns := {}
+	for feature in allFeatures {
+		rawFeatureColumns[feature] = columnsWithSequences.getColumns(feature)
+	}
+	rawFr4InFrame := columnsWithSequences.getColumns("FR4InFrame")
+
+	// ARRANGEMENT — whether both chains sit side by side in ONE frame, separated by the
+	// pl7.app/vdj/scClonotypeChain COLUMN domain — comes from the columns, not from the key
+	// axis name. Single-cell is the long-standing case; a PAIRED bare set from import-vdj-data
+	// is the new one, and it carries the same column domain on a pl7.app/variantKey axis.
+	//
+	// Reading arrangement off the axis name sent a paired bare set down the bulk path, where
+	// chainColumnFor returns cols[0]: one chain would be scored, the other silently dropped,
+	// and the result would still look complete.
+	//
+	// A SINGLE-chain bare set carries no chain domain at all — import-vdj-data stamps it only
+	// when both chains are mapped, deliberately, so that a one-chain import is bulk-shaped —
+	// and it therefore keeps the bulk path, which is the right one for it.
+	chainScanCols := vdjRegions
+	for feature in allFeatures {
+		chainScanCols += rawFeatureColumns[feature]
+	}
+	chainScanCols += rawFr4InFrame
+
+	hasChainColumns := false
+	for col in chainScanCols {
+		if !is_undefined(col.spec.domain["pl7.app/vdj/scClonotypeChain"]) {
+			hasChainColumns = true
+		}
+	}
+	perChain := isSingleCell || hasChainColumns
+
+	// For per-chain data: keep only primary chains AND order them
 	// deterministically by scClonotypeChain (A before B). Bulk columns have no
 	// scClonotypeChain/index domain key, so this normalization is skipped for
 	// bulk data. Filtering out index != "primary" is what keeps secondary-rank
 	// (CDR3-only) rearrangements out of the scored table -> they stay null.
 	normalizePrimaryChainOrder := func(cols) {
-		if !isSingleCell {
+		if !perChain {
 			return cols
 		}
 		byChain := {}
@@ -139,14 +198,14 @@ wf.body(func(args) {
 		return ordered
 	}
 
-	// Per-region columns (primary-only + A-before-B for single-cell), keyed by
+	// Per-region columns (primary-only + A-before-B when per-chain), keyed by
 	// feature, with the FR4 -> FR4InFrame fallback applied per chain so a chain
 	// that only carries FR4InFrame still fills its FR4 slot.
 	featureColumns := {}
 	for feature in allFeatures {
-		featureColumns[feature] = normalizePrimaryChainOrder(columnsWithSequences.getColumns(feature))
+		featureColumns[feature] = normalizePrimaryChainOrder(rawFeatureColumns[feature])
 	}
-	fr4InFrame := normalizePrimaryChainOrder(columnsWithSequences.getColumns("FR4InFrame"))
+	fr4InFrame := normalizePrimaryChainOrder(rawFr4InFrame)
 
 	// Build one scoring unit per chain type. Each unit's table holds the
 	// clonotype-key axis plus EITHER a single "VDJRegion aa" column (full-domain
@@ -169,13 +228,13 @@ wf.body(func(args) {
 		return b.build()
 	}
 
-	// Resolve the source for one chain. `chain` is the scClonotypeChain value for
-	// single-cell, or undefined for bulk. Returns the list of {col, header} pairs
+	// Resolve the source for one chain. `chain` is the scClonotypeChain value when the
+	// dataset is per-chain, or undefined for bulk. Returns the list of {col, header} pairs
 	// for that chain, or [] when nothing is assemblable. Prefers VDJRegion (one
 	// "VDJRegion aa" column); otherwise gathers the chain's per-region columns in
 	// canonical order, FR4 falling back to FR4InFrame.
 	chainColumnFor := func(cols, chain) {
-		if isSingleCell {
+		if perChain {
 			for col in cols {
 				if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
 					continue
@@ -214,7 +273,7 @@ wf.body(func(args) {
 
 	units := []
 
-	if isSingleCell {
+	if perChain {
 		// Score the PRIMARY-rank rearrangement of each chain type (A=Heavy,
 		// B=Light). Secondary-rank rows are filtered out (index != "primary")
 		// in both the VDJRegion and the per-region selection, so they produce
@@ -310,7 +369,7 @@ wf.body(func(args) {
 		customBlockLabel: args.customBlockLabel,
 		params: smart.createJsonResource({
 			clonotypeKeySpec: clonotypeKeySpec,
-			isSingleCell: isSingleCell,
+			perChain: perChain,
 			datasetLabel: datasetLabel,
 			traceAnnotations: traceAnnotations
 		})

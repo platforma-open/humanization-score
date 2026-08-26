@@ -75,6 +75,17 @@ export const defaultGraphStateHistogram = (): GraphMakerState => ({
 //           filter values IGH/IGK/IGL). Axis-domain matching can't express a
 //           value set, so we emit one selector per allowed chain (OR-ed).
 //   - single-cell: the scClonotypeKey axis carries `pl7.app/vdj/receptor == 'IG'`.
+//   - bare imported set: import-vdj-data keys a record on `pl7.app/variantKey`
+//           and stamps the receptor there too. That axis is SHARED vocabulary --
+//           peptide-extraction and synthetic-repertoire-profiler key on it as
+//           well -- so its NAME identifies no producer; the run-id key in its
+//           domain does (`pl7.app/vdj/clonotypingRunId` for this one). A run-id
+//           value is a blockId and the legacy selector matches domains by exact
+//           value only, so the gate here is the receptor key: only the VDJ
+//           producer stamps `pl7.app/vdj/receptor` on a variantKey axis, so
+//           peptide and amplicon sets are not offered, and a TCR bare set stamps
+//           TCRAB/TCRGD and is not offered either. main.tpl.tengo re-checks the
+//           run-id key positively as the backstop.
 // TCR datasets (TR* / TCRAB / TCRGD) are therefore never offered. The workflow
 // guard (main.tpl.tengo) is the backstop (hard-fail ll.panic) if a TCR dataset
 // is forced — TCR is a hard reject per spec R5.
@@ -100,6 +111,13 @@ const inputSelectors = [
     axes: [
       { name: 'pl7.app/sampleId' },
       { name: 'pl7.app/vdj/scClonotypeKey', domain: { 'pl7.app/vdj/receptor': 'IG' } },
+    ],
+    annotations: { 'pl7.app/isAnchor': 'true' },
+  },
+  {
+    axes: [
+      { name: 'pl7.app/sampleId' },
+      { name: 'pl7.app/variantKey', domain: { 'pl7.app/vdj/receptor': 'IG' } },
     ],
     annotations: { 'pl7.app/isAnchor': 'true' },
   },
