@@ -48,11 +48,8 @@ self.body(func(args) {
 	// annotation), so an unrelated change in datasetSpec does not bust this cache.
 	params := args.params
 
-	// Chains side by side in one frame, separated by the pl7.app/vdj/scClonotypeChain COLUMN
-	// domain. That letter-domain is the marker, so this covers a paired bare receptor set from
-	// import-vdj-data as well as single-cell data — main.tpl.tengo seeds the flag from the key
-	// axis name and widens it from the columns. False means bulk-shaped: one chainless unit,
-	// which is also the right answer for a SINGLE-chain bare set.
+	// True for single-cell AND for a paired bare set: main.tpl.tengo decides it from the
+	// scClonotypeChain column domain, not the key axis name.
 	isSingleCell := params.isSingleCell
 
 	// One scoring unit per chain type. Bulk has a single unit (no chain split);

@@ -29,10 +29,8 @@ NO_FULL_DOMAIN_WARNING := "Humanness scoring needs a contiguous variable-region 
 // whose repertoire (OAS) contains no TCR data. This stays a fatal ll.panic.
 TCR_MESSAGE := "Humanness scoring applies to antibodies only; TCR input is not supported."
 
-// A dataset keyed on pl7.app/variantKey by a producer we do not recognise. Named rather than
-// absorbed into the nearest branch: the axis is shared vocabulary and the run-id key in its
-// domain is what says who produced it, so an unknown run-id is an unknown data shape and
-// guessing at it is how a peptide set ends up being scored as an antibody.
+// An unknown run-id on the shared variantKey axis is an unknown data shape: refuse it rather
+// than falling through to the nearest branch.
 UNKNOWN_PRODUCER_MESSAGE := "This dataset is keyed on pl7.app/variantKey but carries no producer run-id this block recognises. Humanness scoring accepts receptor sets stamped with pl7.app/vdj/clonotypingRunId (imported antibody sets from Import VDJ Data); peptide and amplicon sets are not scoreable."
 
 // Prepare phase of the workflow - collects and sets up required data
@@ -100,27 +98,18 @@ wf.body(func(args) {
 	keyAxisSpec := datasetSpec.axesSpec[1]
 	keyAxisDomain := is_undefined(keyAxisSpec.domain) ? {} : keyAxisSpec.domain
 
-	// MODALITY comes from the run-id key on the key axis, never from the axis name.
-	// `pl7.app/variantKey` is shared vocabulary; three producers key on it and only the
-	// run-id in its domain says which:
-	//
-	//   pl7.app/peptide/extractionRunId      peptide-extraction              -> peptides
-	//   pl7.app/repertoire/extractionRunId   synthetic-repertoire-profiler   -> amplicons
-	//   pl7.app/vdj/clonotypingRunId         import-vdj-data, bare set       -> receptors
-	//
-	// The model's selectors already keep the first two out of the dropdown (neither stamps
-	// pl7.app/vdj/receptor on the axis). This is the backstop, and it REFUSES an unrecognised
-	// producer naming the accepted ones rather than falling through to the nearest branch —
-	// falling through is what sent bare sets down peptide paths in four other blocks.
+	// pl7.app/variantKey is shared by three producers, so modality comes from the run-id key
+	// in its domain, not the axis name: peptide/extractionRunId (peptide-extraction),
+	// repertoire/extractionRunId (synthetic-repertoire-profiler), vdj/clonotypingRunId
+	// (import-vdj-data — the only one we score). Backstop; the model's selectors gate first.
 	if keyAxisSpec.name == "pl7.app/variantKey" &&
 		is_undefined(keyAxisDomain["pl7.app/vdj/clonotypingRunId"]) {
 		ll.panic(UNKNOWN_PRODUCER_MESSAGE)
 	}
 
-	// Ig only (spec R5). Where the receptor is stated on the key axis — single-cell, and a
-	// bare imported set — read it there. A bulk clonotypeKey axis names the CHAIN instead,
-	// using the producer's chainInfos KEYS rather than the mixcr filter values:
-	// IG = "IGHeavy"/"IGLight", TCR = "TCRAlpha"/"TCRBeta"/"TCRGamma"/"TCRDelta".
+	// Ig only (spec R5). Single-cell and bare-set axes state the receptor; a bulk clonotypeKey
+	// axis states the chain instead, as chainInfos KEYS (IGHeavy/IGLight), not mixcr filter
+	// values (IGH/IGK/IGL).
 	receptor := keyAxisDomain["pl7.app/vdj/receptor"]
 	if !is_undefined(receptor) {
 		if receptor != "IG" {
@@ -141,33 +130,15 @@ wf.body(func(args) {
 	}
 	rawFr4InFrame := columnsWithSequences.getColumns("FR4InFrame")
 
-	// ARRANGEMENT — whether both chains sit side by side in ONE frame, separated by the
-	// pl7.app/vdj/scClonotypeChain COLUMN domain. The marker is that chain letter-domain, NOT
-	// the key axis name: single-cell is the long-standing case, and a PAIRED bare set from
-	// import-vdj-data is the new one, carrying the same column domain on a variantKey axis.
-	// So isSingleCell is SEEDED from the axis name and WIDENED by the columns — the same
-	// widening paratope-clustering (main.tpl.tengo:107) and clonotype-clustering (:117) apply.
+	// Chains sit side by side in one frame whenever the columns carry the scClonotypeChain
+	// domain — single-cell, and now a PAIRED bare set on a variantKey axis. That column domain
+	// is the marker, not the axis name, so seed from the name and widen from the columns
+	// (as paratope-clustering:107 and clonotype-clustering:117 do). Left on the axis name, a
+	// paired bare set took the bulk path and had one chain silently dropped.
 	//
-	// The widening tests `/index`, not the bare `pl7.app/vdj/scClonotypeChain`, because
-	// `/index == "primary"` is what the code below REQUIRES: normalizePrimaryChainOrder and
-	// chainColumnFor both `continue` on anything else, absent included. A dataset carrying the
-	// chain key without `/index` would therefore flip this flag and then have every column
-	// filtered out — zero units, the "nothing assemblable" warning, a null score. Several
-	// producers do stamp the chain key alone (mixcr-scfv gene hits, immuno-match,
-	// sequence-properties, clonotype-convergence); none on a variantKey axis today, so this is
-	// latent rather than live, but the test has to match what the consumer needs.
-	//
-	// Gated on the axis actually being variantKey, as clonotype-clustering gates it (:118): the
-	// only shape this widening exists for is a paired bare set, and the narrower test keeps a
-	// stray chain-domain column on some other key axis from silently switching paths.
-	//
-	// Reading arrangement off the axis name sent a paired bare set down the bulk path, where
-	// chainColumnFor returns cols[0]: one chain would be scored, the other silently dropped,
-	// and the result would still look complete.
-	//
-	// A SINGLE-chain bare set carries no chain domain at all — import-vdj-data stamps it only
-	// when both chains are mapped, deliberately, so that a one-chain import is bulk-shaped —
-	// and it therefore keeps the bulk path, which is the right one for it.
+	// Test `/index`, not the bare chain key: the code below requires /index == "primary" and
+	// skips anything else, so a chain key without /index would flip this flag and then filter
+	// every column out. A SINGLE-chain bare set carries no chain domain and stays bulk-shaped.
 	chainScanCols := vdjRegions
 	for feature in allFeatures {
 		chainScanCols += rawFeatureColumns[feature]
