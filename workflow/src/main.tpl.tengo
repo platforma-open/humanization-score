@@ -148,6 +148,19 @@ wf.body(func(args) {
 	// So isSingleCell is SEEDED from the axis name and WIDENED by the columns — the same
 	// widening paratope-clustering (main.tpl.tengo:107) and clonotype-clustering (:117) apply.
 	//
+	// The widening tests `/index`, not the bare `pl7.app/vdj/scClonotypeChain`, because
+	// `/index == "primary"` is what the code below REQUIRES: normalizePrimaryChainOrder and
+	// chainColumnFor both `continue` on anything else, absent included. A dataset carrying the
+	// chain key without `/index` would therefore flip this flag and then have every column
+	// filtered out — zero units, the "nothing assemblable" warning, a null score. Several
+	// producers do stamp the chain key alone (mixcr-scfv gene hits, immuno-match,
+	// sequence-properties, clonotype-convergence); none on a variantKey axis today, so this is
+	// latent rather than live, but the test has to match what the consumer needs.
+	//
+	// Gated on the axis actually being variantKey, as clonotype-clustering gates it (:118): the
+	// only shape this widening exists for is a paired bare set, and the narrower test keeps a
+	// stray chain-domain column on some other key axis from silently switching paths.
+	//
 	// Reading arrangement off the axis name sent a paired bare set down the bulk path, where
 	// chainColumnFor returns cols[0]: one chain would be scored, the other silently dropped,
 	// and the result would still look complete.
@@ -162,9 +175,9 @@ wf.body(func(args) {
 	chainScanCols += rawFr4InFrame
 
 	isSingleCell := keyAxisSpec.name == "pl7.app/vdj/scClonotypeKey"
-	if !isSingleCell {
+	if !isSingleCell && keyAxisSpec.name == "pl7.app/variantKey" {
 		for col in chainScanCols {
-			if !is_undefined(col.spec.domain["pl7.app/vdj/scClonotypeChain"]) {
+			if !is_undefined(col.spec.domain["pl7.app/vdj/scClonotypeChain/index"]) {
 				isSingleCell = true
 			}
 		}
