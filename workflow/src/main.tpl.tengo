@@ -100,11 +100,6 @@ wf.body(func(args) {
 	keyAxisSpec := datasetSpec.axesSpec[1]
 	keyAxisDomain := is_undefined(keyAxisSpec.domain) ? {} : keyAxisSpec.domain
 
-	// The legacy single-cell key axis. Kept as its own name because it is only ONE of the
-	// two shapes that carry both chains in one frame — see perChain below, which is what the
-	// rest of this body branches on.
-	isSingleCell := keyAxisSpec.name == "pl7.app/vdj/scClonotypeKey"
-
 	// MODALITY comes from the run-id key on the key axis, never from the axis name.
 	// `pl7.app/variantKey` is shared vocabulary; three producers key on it and only the
 	// run-id in its domain says which:
@@ -147,9 +142,11 @@ wf.body(func(args) {
 	rawFr4InFrame := columnsWithSequences.getColumns("FR4InFrame")
 
 	// ARRANGEMENT — whether both chains sit side by side in ONE frame, separated by the
-	// pl7.app/vdj/scClonotypeChain COLUMN domain — comes from the columns, not from the key
-	// axis name. Single-cell is the long-standing case; a PAIRED bare set from import-vdj-data
-	// is the new one, and it carries the same column domain on a pl7.app/variantKey axis.
+	// pl7.app/vdj/scClonotypeChain COLUMN domain. The marker is that chain letter-domain, NOT
+	// the key axis name: single-cell is the long-standing case, and a PAIRED bare set from
+	// import-vdj-data is the new one, carrying the same column domain on a variantKey axis.
+	// So isSingleCell is SEEDED from the axis name and WIDENED by the columns — the same
+	// widening paratope-clustering (main.tpl.tengo:107) and clonotype-clustering (:117) apply.
 	//
 	// Reading arrangement off the axis name sent a paired bare set down the bulk path, where
 	// chainColumnFor returns cols[0]: one chain would be scored, the other silently dropped,
@@ -164,21 +161,22 @@ wf.body(func(args) {
 	}
 	chainScanCols += rawFr4InFrame
 
-	hasChainColumns := false
-	for col in chainScanCols {
-		if !is_undefined(col.spec.domain["pl7.app/vdj/scClonotypeChain"]) {
-			hasChainColumns = true
+	isSingleCell := keyAxisSpec.name == "pl7.app/vdj/scClonotypeKey"
+	if !isSingleCell {
+		for col in chainScanCols {
+			if !is_undefined(col.spec.domain["pl7.app/vdj/scClonotypeChain"]) {
+				isSingleCell = true
+			}
 		}
 	}
-	perChain := isSingleCell || hasChainColumns
 
-	// For per-chain data: keep only primary chains AND order them
+	// For single-cell data: keep only primary chains AND order them
 	// deterministically by scClonotypeChain (A before B). Bulk columns have no
 	// scClonotypeChain/index domain key, so this normalization is skipped for
 	// bulk data. Filtering out index != "primary" is what keeps secondary-rank
 	// (CDR3-only) rearrangements out of the scored table -> they stay null.
 	normalizePrimaryChainOrder := func(cols) {
-		if !perChain {
+		if !isSingleCell {
 			return cols
 		}
 		byChain := {}
@@ -198,7 +196,7 @@ wf.body(func(args) {
 		return ordered
 	}
 
-	// Per-region columns (primary-only + A-before-B when per-chain), keyed by
+	// Per-region columns (primary-only + A-before-B for single-cell), keyed by
 	// feature, with the FR4 -> FR4InFrame fallback applied per chain so a chain
 	// that only carries FR4InFrame still fills its FR4 slot.
 	featureColumns := {}
@@ -228,13 +226,13 @@ wf.body(func(args) {
 		return b.build()
 	}
 
-	// Resolve the source for one chain. `chain` is the scClonotypeChain value when the
-	// dataset is per-chain, or undefined for bulk. Returns the list of {col, header} pairs
+	// Resolve the source for one chain. `chain` is the scClonotypeChain value for
+	// single-cell, or undefined for bulk. Returns the list of {col, header} pairs
 	// for that chain, or [] when nothing is assemblable. Prefers VDJRegion (one
 	// "VDJRegion aa" column); otherwise gathers the chain's per-region columns in
 	// canonical order, FR4 falling back to FR4InFrame.
 	chainColumnFor := func(cols, chain) {
-		if perChain {
+		if isSingleCell {
 			for col in cols {
 				if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
 					continue
@@ -273,7 +271,7 @@ wf.body(func(args) {
 
 	units := []
 
-	if perChain {
+	if isSingleCell {
 		// Score the PRIMARY-rank rearrangement of each chain type (A=Heavy,
 		// B=Light). Secondary-rank rows are filtered out (index != "primary")
 		// in both the VDJRegion and the per-region selection, so they produce
@@ -369,7 +367,7 @@ wf.body(func(args) {
 		customBlockLabel: args.customBlockLabel,
 		params: smart.createJsonResource({
 			clonotypeKeySpec: clonotypeKeySpec,
-			perChain: perChain,
+			isSingleCell: isSingleCell,
 			datasetLabel: datasetLabel,
 			traceAnnotations: traceAnnotations
 		})
