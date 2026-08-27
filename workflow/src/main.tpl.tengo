@@ -29,9 +29,14 @@ NO_FULL_DOMAIN_WARNING := "Humanness scoring needs a contiguous variable-region 
 // whose repertoire (OAS) contains no TCR data. This stays a fatal ll.panic.
 TCR_MESSAGE := "Humanness scoring applies to antibodies only; TCR input is not supported."
 
-// An unknown run-id on the shared variantKey axis is an unknown data shape: refuse it rather
-// than falling through to the nearest branch.
-UNKNOWN_PRODUCER_MESSAGE := "This dataset is keyed on pl7.app/variantKey but carries no producer run-id this block recognises. Humanness scoring accepts receptor sets stamped with pl7.app/vdj/clonotypingRunId (imported antibody sets from Import VDJ Data); peptide and amplicon sets are not scoreable."
+// An unrecognised producer mark on the shared variantKey axis is an unknown data shape: refuse
+// it rather than falling through to the nearest branch.
+UNKNOWN_PRODUCER_MESSAGE := "This dataset is keyed on pl7.app/variantKey but carries no producer mark this block recognises. Humanness scoring accepts receptor sets stamped with pl7.app/vdj/clonotypingRunId (imported antibody sets from Import VDJ Data) and V-domain repertoires stamped with pl7.app/modality: vdj (Synthetic Repertoire Profiler); peptide and amplicon sets are not scoreable."
+
+// A profiler run declares its modality but not its receptor: the block cannot tell an antibody
+// repertoire from a TCR one. Scoring proceeds (the OAS reference is antibody-only, so a TCR
+// repertoire would score as poorly human) and the assumption is stated instead of hidden.
+UNDECLARED_RECEPTOR_WARNING := "This dataset declares pl7.app/modality: vdj but no receptor, so the scores below assume the repertoire is an antibody one. Humanness is measured against OAS, which contains no TCR data; if these variants are T-cell receptors, the scores are not meaningful."
 
 // Prepare phase of the workflow - collects and sets up required data
 wf.prepare(func(args) {
@@ -53,6 +58,21 @@ wf.prepare(func(args) {
 		}
 	}, "vdjRegions")
 
+	// Same preferred source in the profiler's naming world. Its assembling column keys the
+	// feature as "amplicon-sequence" in both modalities on purpose, so the key stays matchable
+	// whatever region scheme the run used; the complete-feature name (VDJRegion) rides in the
+	// label. On a modality:vdj run the whole variant IS the canonical V domain — the profiler's
+	// vdjAuto config gives every parent the FR1..FR4 partition plus the VDJRegion whole-variant
+	// feature (region-config.lib.tengo). Only that modality reaches this block.
+	bundleBuilder.addMulti({
+		axes: [{ anchor: "main", idx: 1 }],
+		name: "pl7.app/sequence",
+		domain: {
+			"pl7.app/alphabet": "aminoacid",
+			"pl7.app/feature": "amplicon-sequence"
+		}
+	}, "profilerAssembled")
+
 	// Fallback source: the per-region amino-acid columns. When a chain has no
 	// VDJRegion column the body feeds these region columns to the scorer, which
 	// assembles a contiguous partial domain per row and applies the >=3-framework
@@ -67,6 +87,22 @@ wf.prepare(func(args) {
 				"pl7.app/alphabet": "aminoacid"
 			}
 		}, feature)
+	}
+
+	// Same fallback in the profiler's naming world: "pl7.app/sequence" keyed on
+	// "pl7.app/feature". The region names are the same seven, so the slots pair one-to-one.
+	// prepare cannot see the dataset spec, so both worlds are always requested; the selectors
+	// are anchored to the chosen dataset's own axis, so the world that does not apply
+	// contributes no columns.
+	for feature in allFeatures {
+		bundleBuilder.addMulti({
+			axes: [{ anchor: "main", idx: 1 }],
+			name: "pl7.app/sequence",
+			domain: {
+				"pl7.app/feature": feature,
+				"pl7.app/alphabet": "aminoacid"
+			}
+		}, "profiler" + feature)
 	}
 
 	// FR4 can also be named FR4InFrame in some datasets; pull it as a per-chain
@@ -98,23 +134,37 @@ wf.body(func(args) {
 	keyAxisSpec := datasetSpec.axesSpec[1]
 	keyAxisDomain := is_undefined(keyAxisSpec.domain) ? {} : keyAxisSpec.domain
 
-	// pl7.app/variantKey is shared by three producers, so modality comes from the run-id key
-	// in its domain, not the axis name: peptide/extractionRunId (peptide-extraction),
-	// repertoire/extractionRunId (synthetic-repertoire-profiler), vdj/clonotypingRunId
-	// (import-vdj-data — the only one we score). Backstop; the model's selectors gate first.
+	// Non-fatal warnings, surfaced to the model as a banner. Collected from here on and
+	// returned at the end of the body.
+	warnings := []
+
+	// pl7.app/variantKey is shared by three producers, so what the rows are comes from the
+	// axis domain, not the axis name. Two marks admit a dataset:
+	//   - vdj/clonotypingRunId — import-vdj-data's bare receptor sets.
+	//   - modality: vdj        — synthetic-repertoire-profiler's own declaration; its other
+	//                            value, "amplicon", covers designed libraries, phage pools
+	//                            and deep mutational scans, none of them scoreable.
+	// peptide-extraction stamps peptide/extractionRunId and neither mark, so it stays out.
+	// Backstop; the model's selectors gate first.
+	isProfilerVdj := keyAxisSpec.name == "pl7.app/variantKey" &&
+		keyAxisDomain["pl7.app/modality"] == "vdj"
 	if keyAxisSpec.name == "pl7.app/variantKey" &&
-		is_undefined(keyAxisDomain["pl7.app/vdj/clonotypingRunId"]) {
+		is_undefined(keyAxisDomain["pl7.app/vdj/clonotypingRunId"]) &&
+		!isProfilerVdj {
 		ll.panic(UNKNOWN_PRODUCER_MESSAGE)
 	}
 
 	// Ig only (spec R5). Single-cell and bare-set axes state the receptor; a bulk clonotypeKey
 	// axis states the chain instead, as chainInfos KEYS (IGHeavy/IGLight), not mixcr filter
-	// values (IGH/IGK/IGL).
+	// values (IGH/IGK/IGL). A profiler axis states neither, so it is scored under a stated
+	// assumption rather than refused — see UNDECLARED_RECEPTOR_WARNING.
 	receptor := keyAxisDomain["pl7.app/vdj/receptor"]
 	if !is_undefined(receptor) {
 		if receptor != "IG" {
 			ll.panic(TCR_MESSAGE)
 		}
+	} else if isProfilerVdj {
+		warnings += [UNDECLARED_RECEPTOR_WARNING]
 	} else {
 		chain := keyAxisDomain["pl7.app/vdj/chain"]
 		if !(chain == "IGHeavy" || chain == "IGLight") {
@@ -122,11 +172,20 @@ wf.body(func(args) {
 		}
 	}
 
-	vdjRegions := columnsWithSequences.getColumns("vdjRegions")
+	// The assembled-domain fast path, filled from whichever naming world the dataset uses. A
+	// dataset belongs to exactly one, so one of the two lists is always empty; the VDJ world
+	// goes first so it wins the single-column pick if a producer ever emitted both.
+	vdjRegions := columnsWithSequences.getColumns("vdjRegions") +
+		columnsWithSequences.getColumns("profilerAssembled")
 
+	// One slot per region, same two-worlds concatenation. Still pulled on a profiler run even
+	// though the assembling column above wins: a run whose regions are not codon-aligned emits
+	// no aa region columns, and one whose scheme has no complete feature emits no assembling
+	// column, so each source covers the other's gap.
 	rawFeatureColumns := {}
 	for feature in allFeatures {
-		rawFeatureColumns[feature] = columnsWithSequences.getColumns(feature)
+		rawFeatureColumns[feature] = columnsWithSequences.getColumns(feature) +
+			columnsWithSequences.getColumns("profiler" + feature)
 	}
 	rawFr4InFrame := columnsWithSequences.getColumns("FR4InFrame")
 
@@ -295,8 +354,8 @@ wf.body(func(args) {
 	// that DOES provide region columns but covers <3 framework regions is NOT
 	// warned here: it yields a built unit whose per-row score is null'd by the
 	// coverage gate in the Python scorer. See spec correct-behavior §3a/§7.
-	// (TCR remains a hard reject above, per R5.)
-	warnings := []
+	// (TCR remains a hard reject above, per R5.) `warnings` is declared at the top of the
+	// body, because the undeclared-receptor warning is raised by the guards up there.
 	if len(units) == 0 {
 		warnings += [NO_FULL_DOMAIN_WARNING]
 	}

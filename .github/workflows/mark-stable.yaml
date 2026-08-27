@@ -14,7 +14,7 @@ jobs:
       - init
     uses: milaboratory/github-ci/.github/workflows/block-mark-stable.yaml@v4
     with:
-      app-name: 'Block: Antibody Sequence Liabilities - Mark Stable'
+      app-name: 'Block: Humanness Score - Mark Stable'
       node-version: '22.x'
       npmrc-config: |
         {

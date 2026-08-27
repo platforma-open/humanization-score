@@ -22,7 +22,7 @@ jobs:
       - init
     uses: milaboratory/github-ci/.github/workflows/node-simple-pnpm.yaml@v4
     with:
-      app-name: 'Block: Antibody Sequence Liabilities'
+      app-name: 'Block: Humanness Score'
       app-name-slug: 'block-humanness-score'
       node-version: '22.x'
       build-script-name: 'build'

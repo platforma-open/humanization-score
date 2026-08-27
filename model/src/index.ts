@@ -52,6 +52,14 @@ export const CHAIN_LIGHT = 'B';
 
 const SEQUENCE_COLUMN = 'pl7.app/vdj/sequence';
 
+// The profiler names its sequence columns `pl7.app/sequence` and keys the region
+// on `pl7.app/feature`, where MiXCR and import-vdj-data use `pl7.app/vdj/sequence`
+// and `pl7.app/vdj/feature`. Two naming worlds, same region names (FR1..FR4,
+// CDR1..CDR3) -- see synthetic-repertoire-profiler's `regionSeqColumns`. A block
+// that reads only the VDJ names finds nothing on profiler data, so coverage
+// detection has to ask for both. The workflow's `prepare` does the same.
+const PROFILER_SEQUENCE_COLUMN = 'pl7.app/sequence';
+
 export const defaultGraphStateHistogram = (): GraphMakerState => ({
   title: 'Humanness Score Distribution',
   template: 'bins',
@@ -81,6 +89,12 @@ export const defaultGraphStateHistogram = (): GraphMakerState => ({
 //           the producer holds a blockId -- unmatchable, since selectors compare
 //           domains by exact value. Only the VDJ producer stamps a receptor here,
 //           so it gates equivalently; main.tpl.tengo checks the run-id itself.
+//   - profiler V-domain run: the variantKey axis carries `pl7.app/modality == 'vdj'`.
+//           The profiler declares what its run produced instead of leaving
+//           consumers to guess the producer from the axis name: 'vdj' for a
+//           V-domain repertoire, 'amplicon' for a designed library, phage pool or
+//           deep mutational scan. Only 'vdj' runs are scoreable.
+//           A profiler run declares NO receptor, so it may be a TCR repertoire.
 // TCR datasets (TR* / TCRAB / TCRGD) are therefore never offered. The workflow
 // guard (main.tpl.tengo) is the backstop (hard-fail ll.panic) if a TCR dataset
 // is forced — TCR is a hard reject per spec R5.
@@ -113,6 +127,16 @@ const inputSelectors = [
     axes: [
       { name: 'pl7.app/sampleId' },
       { name: 'pl7.app/variantKey', domain: { 'pl7.app/vdj/receptor': 'IG' } },
+    ],
+    annotations: { 'pl7.app/isAnchor': 'true' },
+  },
+  {
+    axes: [
+      { name: 'pl7.app/sampleId' },
+      {
+        name: 'pl7.app/variantKey',
+        domain: { 'pl7.app/modality': 'vdj', 'pl7.app/alphabet': 'aminoacid' },
+      },
     ],
     annotations: { 'pl7.app/isAnchor': 'true' },
   },
@@ -199,13 +223,22 @@ export const platforma = BlockModelV3.create(dataModel)
 
     const cols = ctx.resultPool.getAnchoredPColumns(
       { main: anchor },
-      {
-        axes: [{ anchor: 'main', idx: 1 }],
-        name: SEQUENCE_COLUMN,
-        domain: { 'pl7.app/alphabet': 'aminoacid' },
-        partialAxesMatch: true,
-        matchStrategy: 'expectMultiple',
-      },
+      [
+        {
+          axes: [{ anchor: 'main', idx: 1 }],
+          name: SEQUENCE_COLUMN,
+          domain: { 'pl7.app/alphabet': 'aminoacid' },
+          partialAxesMatch: true,
+          matchStrategy: 'expectMultiple',
+        },
+        {
+          axes: [{ anchor: 'main', idx: 1 }],
+          name: PROFILER_SEQUENCE_COLUMN,
+          domain: { 'pl7.app/alphabet': 'aminoacid' },
+          partialAxesMatch: true,
+          matchStrategy: 'expectMultiple',
+        },
+      ],
     );
 
     if (cols == null || cols.length === 0) return [];

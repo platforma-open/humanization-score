@@ -6,6 +6,13 @@
 // clears that bar — so the run can be blocked up front for under-covered
 // inputs (e.g. clonotypes assembled by a short feature such as CDR1:CDR3).
 export const FEATURE_DOMAIN = 'pl7.app/vdj/feature';
+
+// synthetic-repertoire-profiler keys the region on `pl7.app/feature` instead, on
+// columns named `pl7.app/sequence`. The region NAMES are the same (FR1..FR4,
+// CDR1..CDR3), so the spans below apply unchanged; only the domain key differs.
+// A column carries one key or the other, never both.
+export const PROFILER_FEATURE_DOMAIN = 'pl7.app/feature';
+
 export const MIN_FRAMEWORK_REGIONS = 3;
 
 // Linear coordinates of the V-region reference points, in order. Each region
@@ -24,14 +31,13 @@ const REF_POINT_POS: Record<string, number> = {
   FR4End: 7,
 };
 
-// [Begin, End] position of each framework region. A framework counts as covered
-// only when it is fully contained in the assembled feature's span.
-const FRAMEWORK_SPANS: [number, number][] = [
-  [0, 1], // FR1
-  [2, 3], // FR2
-  [4, 5], // FR3
-  [6, 7], // FR4
-];
+// The seven canonical regions in N->C order, each spanning [i, i+1]. This is the
+// same template `software/src/main.py:_CANONICAL_REGIONS` walks, and the order the
+// scorer concatenates in.
+const CANONICAL_REGIONS = ['FR1', 'CDR1', 'FR2', 'CDR2', 'FR3', 'CDR3', 'FR4'] as const;
+
+// Which of those seven count toward the coverage gate (mirrors `_FR_REGIONS`).
+const FRAMEWORK_REGIONS: ReadonlySet<string> = new Set(['FR1', 'FR2', 'FR3', 'FR4']);
 
 // [Begin, End] position of each single named region we may see as a feature.
 const SINGLE_REGION_SPANS: Record<string, [number, number]> = {
@@ -44,6 +50,10 @@ const SINGLE_REGION_SPANS: Record<string, [number, number]> = {
 //   - VDJRegion / VDJRegionInFrame -> the full V region (all 4 frameworks).
 //   - single named regions (FR1..FR4, FR4InFrame, CDR1..CDR3).
 //   - composite ranges emitted by the producer, e.g. "{CDR1Begin:CDR3End}".
+// The profiler's whole-variant feature ("amplicon-sequence") names no range, so
+// it lands here as undefined and is skipped. That is deliberate: its span depends
+// on the run's region scheme, which the feature key does not state, and the
+// per-region columns of the same run do state their spans.
 const featureSpan = (feature: string): [number, number] | undefined => {
   if (feature === 'VDJRegion' || feature === 'VDJRegionInFrame') return [0, 7];
   const single = SINGLE_REGION_SPANS[feature];
@@ -72,11 +82,45 @@ export interface CoverageColumn {
 }
 
 /**
+ * Number of framework regions in the longest gap-free run of covered regions.
+ *
+ * `covered[i]` says whether canonical region `i` is covered by at least one of the
+ * chain's columns. A run must be gap-free because the scorer never bridges a hole:
+ * gluing FR2 straight onto FR4 would fabricate a junction 9-mer that occurs in no
+ * real antibody (`software/src/main.py:assemble_and_score`).
+ */
+const frameworksInLongestRun = (covered: readonly boolean[]): number => {
+  let best = 0;
+  let runFrameworks = 0;
+  for (let i = 0; i < CANONICAL_REGIONS.length; i++) {
+    if (!covered[i]) {
+      runFrameworks = 0;
+      continue;
+    }
+    if (FRAMEWORK_REGIONS.has(CANONICAL_REGIONS[i])) runFrameworks++;
+    if (runFrameworks > best) best = runFrameworks;
+  }
+  return best;
+};
+
+/**
  * Returns one warning per chain whose assembled variable region covers fewer
  * than `MIN_FRAMEWORK_REGIONS` framework regions. Empty when every chain clears
  * the bar (or when there are no understandable feature columns).
  *
- * @param cols       amino-acid `pl7.app/vdj/sequence` columns for the dataset
+ * Coverage is the UNION of what the chain's columns span, not the span of the
+ * widest one. Both dataset shapes have to work:
+ *
+ *  - MiXCR and Import VDJ Data emit an assembling-feature column whose name states
+ *    the whole span (`VDJRegion`, or a composite like `{CDR1Begin:CDR3End}`), with
+ *    the per-region columns as sub-regions of it. The union is that span.
+ *  - synthetic-repertoire-profiler emits SEVEN single-region columns and no
+ *    assembling column with a span in its name. Reading the widest one would see a
+ *    single region and refuse a complete V domain — which is exactly what happened
+ *    before this was a union.
+ *
+ * @param cols       amino-acid sequence columns for the dataset (both naming
+ *                   worlds: `pl7.app/vdj/sequence` and `pl7.app/sequence`)
  * @param chainDomain domain key carrying the chain type (e.g. CHAIN_DOMAIN)
  * @param chainLabels map of chain-type value -> human label (e.g. {A:'Heavy'})
  */
@@ -85,27 +129,31 @@ export function computeCoverageWarnings(
   chainDomain: string,
   chainLabels: Record<string, string>,
 ): string[] {
-  // The widest contiguous feature span present per chain is the assembling
-  // feature; everything narrower is a sub-region of it (or empty noise).
-  const widestSpanByChain = new Map<string | undefined, [number, number]>();
+  const coveredByChain = new Map<string | undefined, boolean[]>();
   for (const col of cols) {
     const domain = col.spec.domain ?? {};
     const index = domain[`${chainDomain}/index`];
     if (index !== undefined && index !== 'primary') continue;
-    const feature = domain[FEATURE_DOMAIN];
+    const feature = domain[FEATURE_DOMAIN] ?? domain[PROFILER_FEATURE_DOMAIN];
     if (!feature) continue;
     const span = featureSpan(feature);
     if (!span) continue;
     const chain = domain[chainDomain];
-    const current = widestSpanByChain.get(chain);
-    if (!current || span[1] - span[0] > current[1] - current[0]) {
-      widestSpanByChain.set(chain, span);
+    let covered = coveredByChain.get(chain);
+    if (!covered) {
+      covered = CANONICAL_REGIONS.map(() => false);
+      coveredByChain.set(chain, covered);
+    }
+    // Region i occupies [i, i+1], so this column covers it when the region sits
+    // wholly inside the column's span.
+    for (let i = 0; i < CANONICAL_REGIONS.length; i++) {
+      if (span[0] <= i && i + 1 <= span[1]) covered[i] = true;
     }
   }
 
   const warnings: string[] = [];
-  for (const [chain, [start, end]] of widestSpanByChain) {
-    const frameworks = FRAMEWORK_SPANS.filter(([b, e]) => b >= start && e <= end).length;
+  for (const [chain, covered] of coveredByChain) {
+    const frameworks = frameworksInLongestRun(covered);
     if (frameworks < MIN_FRAMEWORK_REGIONS) {
       warnings.push(insufficientFrameworksMessage(chain ? chainLabels[chain] : undefined, frameworks));
     }
