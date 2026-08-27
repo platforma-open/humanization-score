@@ -47,6 +47,9 @@ self.body(func(args) {
 	// (the clonotype-key axis spec, the dataset's fallback label, and the trace
 	// annotation), so an unrelated change in datasetSpec does not bust this cache.
 	params := args.params
+
+	// True for single-cell AND for a paired bare set: main.tpl.tengo decides it from the
+	// scClonotypeChain column domain, not the key axis name.
 	isSingleCell := params.isSingleCell
 
 	// One scoring unit per chain type. Bulk has a single unit (no chain split);
