@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import strings from '@milaboratories/strings';
-import type { PlRef } from '@platforma-sdk/model';
+import strings from "@milaboratories/strings";
+import type { PlRef } from "@platforma-sdk/model";
 import {
   PlAccordionSection,
   PlAgDataTableV2,
@@ -12,9 +12,9 @@ import {
   PlNumberField,
   PlSlideModal,
   usePlDataTableSettingsV2,
-} from '@platforma-sdk/ui-vue';
-import { computed, ref, watch } from 'vue';
-import { useApp } from '../app';
+} from "@platforma-sdk/ui-vue";
+import { computed, ref, watch } from "vue";
+import { useApp } from "../app";
 
 const app = useApp();
 
@@ -96,7 +96,8 @@ watch(
         :maxValue="1012"
       >
         <template #tooltip>
-          Sets the amount of memory available for the humanness score calculation. Increase for large datasets (&gt;10M sequences).
+          Sets the amount of memory available for the humanness score calculation. Increase for
+          large datasets (&gt;10M sequences).
         </template>
       </PlNumberField>
     </PlAccordionSection>

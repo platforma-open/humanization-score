@@ -1,11 +1,16 @@
 <script setup lang="ts">
-import type { PredefinedGraphOption } from '@milaboratories/graph-maker';
-import { GraphMaker } from '@milaboratories/graph-maker';
-import strings from '@milaboratories/strings';
-import { CHAIN_DOMAIN, CHAIN_HEAVY, defaultGraphStateHistogram, HUMANNESS_SCORE_COLUMN } from '@platforma-open/milaboratories.humanness-score.model';
-import { PlBlockPage } from '@platforma-sdk/ui-vue';
-import { computed } from 'vue';
-import { useApp } from '../app';
+import type { PredefinedGraphOption } from "@milaboratories/graph-maker";
+import { GraphMaker } from "@milaboratories/graph-maker";
+import strings from "@milaboratories/strings";
+import {
+  CHAIN_DOMAIN,
+  CHAIN_HEAVY,
+  defaultGraphStateHistogram,
+  HUMANNESS_SCORE_COLUMN,
+} from "@platforma-open/milaboratories.humanness-score.model";
+import { PlBlockPage } from "@platforma-sdk/ui-vue";
+import { computed } from "vue";
+import { useApp } from "../app";
 
 const app = useApp();
 
@@ -14,7 +19,9 @@ const app = useApp();
 // object here (the fallback persists on the first user change via the setter).
 const graphState = computed({
   get: () => app.model.data.graphStateHistogram ?? defaultGraphStateHistogram(),
-  set: (v) => { app.model.data.graphStateHistogram = v; },
+  set: (v) => {
+    app.model.data.graphStateHistogram = v;
+  },
 });
 
 // Pre-select the humanness score as the histogram value so the chart renders
@@ -25,18 +32,17 @@ const graphState = computed({
 // distinguished by the `CHAIN_DOMAIN` chain-type domain. Default the histogram
 // to the Heavy chain ('A'); fall back to the first name match (covers bulk,
 // which has a single column with no chain domain).
-const defaultOptions = computed((): PredefinedGraphOption<'histogram'>[] | undefined => {
+const defaultOptions = computed((): PredefinedGraphOption<"histogram">[] | undefined => {
   const pcols = app.model.outputs.histogramPfPcols;
   if (!pcols) return undefined;
 
   const scoreCols = pcols.filter((p) => p.spec.name === HUMANNESS_SCORE_COLUMN);
   if (scoreCols.length === 0) return undefined;
 
-  const scoreCol
-    = scoreCols.find((p) => p.spec.domain?.[CHAIN_DOMAIN] === CHAIN_HEAVY)
-      ?? scoreCols[0];
+  const scoreCol =
+    scoreCols.find((p) => p.spec.domain?.[CHAIN_DOMAIN] === CHAIN_HEAVY) ?? scoreCols[0];
 
-  return [{ inputName: 'value', selectedSource: scoreCol.spec }];
+  return [{ inputName: "value", selectedSource: scoreCol.spec }];
 });
 </script>
 
