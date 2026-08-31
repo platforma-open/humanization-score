@@ -1,5 +1,13 @@
 # @platforma-open/milaboratories.humanness-score.model
 
+## 1.4.0
+
+### Minor Changes
+
+- adc1fdf: Migrate onto the structurer and take the full SDK upgrade (block-tools 2.14.3, tengo-builder 4.0.23, model 1.83.0, ui-vue 1.83.3).
+
+  Adds the mandatory block kind. Its init-params contract is the input dataset, the block subtitle and the memory override, so a project template can seed a configured Humanness Score block.
+
 ## 1.3.0
 
 ### Minor Changes
