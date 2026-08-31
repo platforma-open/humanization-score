@@ -5,13 +5,13 @@
 // amino-acid sequence columns available in the result pool, whether a dataset
 // clears that bar — so the run can be blocked up front for under-covered
 // inputs (e.g. clonotypes assembled by a short feature such as CDR1:CDR3).
-export const FEATURE_DOMAIN = 'pl7.app/vdj/feature';
+export const FEATURE_DOMAIN = "pl7.app/vdj/feature";
 
 // synthetic-repertoire-profiler keys the region on `pl7.app/feature` instead, on
 // columns named `pl7.app/sequence`. The region NAMES are the same (FR1..FR4,
 // CDR1..CDR3), so the spans below apply unchanged; only the domain key differs.
 // A column carries one key or the other, never both.
-export const PROFILER_FEATURE_DOMAIN = 'pl7.app/feature';
+export const PROFILER_FEATURE_DOMAIN = "pl7.app/feature";
 
 export const MIN_FRAMEWORK_REGIONS = 3;
 
@@ -22,27 +22,39 @@ export const MIN_FRAMEWORK_REGIONS = 3;
 //   0   1    2   3    4   5    6   7
 const REF_POINT_POS: Record<string, number> = {
   FR1Begin: 0,
-  CDR1Begin: 1, FR1End: 1,
-  FR2Begin: 2, CDR1End: 2,
-  CDR2Begin: 3, FR2End: 3,
-  FR3Begin: 4, CDR2End: 4,
-  CDR3Begin: 5, FR3End: 5,
-  FR4Begin: 6, CDR3End: 6,
+  CDR1Begin: 1,
+  FR1End: 1,
+  FR2Begin: 2,
+  CDR1End: 2,
+  CDR2Begin: 3,
+  FR2End: 3,
+  FR3Begin: 4,
+  CDR2End: 4,
+  CDR3Begin: 5,
+  FR3End: 5,
+  FR4Begin: 6,
+  CDR3End: 6,
   FR4End: 7,
 };
 
 // The seven canonical regions in N->C order, each spanning [i, i+1]. This is the
 // same template `software/src/main.py:_CANONICAL_REGIONS` walks, and the order the
 // scorer concatenates in.
-const CANONICAL_REGIONS = ['FR1', 'CDR1', 'FR2', 'CDR2', 'FR3', 'CDR3', 'FR4'] as const;
+const CANONICAL_REGIONS = ["FR1", "CDR1", "FR2", "CDR2", "FR3", "CDR3", "FR4"] as const;
 
 // Which of those seven count toward the coverage gate (mirrors `_FR_REGIONS`).
-const FRAMEWORK_REGIONS: ReadonlySet<string> = new Set(['FR1', 'FR2', 'FR3', 'FR4']);
+const FRAMEWORK_REGIONS: ReadonlySet<string> = new Set(["FR1", "FR2", "FR3", "FR4"]);
 
 // [Begin, End] position of each single named region we may see as a feature.
 const SINGLE_REGION_SPANS: Record<string, [number, number]> = {
-  FR1: [0, 1], CDR1: [1, 2], FR2: [2, 3], CDR2: [3, 4],
-  FR3: [4, 5], CDR3: [5, 6], FR4: [6, 7], FR4InFrame: [6, 7],
+  FR1: [0, 1],
+  CDR1: [1, 2],
+  FR2: [2, 3],
+  CDR2: [3, 4],
+  FR3: [4, 5],
+  CDR3: [5, 6],
+  FR4: [6, 7],
+  FR4InFrame: [6, 7],
 };
 
 // Resolve the [Begin, End] span of a sequence feature, or undefined if it
@@ -55,7 +67,7 @@ const SINGLE_REGION_SPANS: Record<string, [number, number]> = {
 // on the run's region scheme, which the feature key does not state, and the
 // per-region columns of the same run do state their spans.
 const featureSpan = (feature: string): [number, number] | undefined => {
-  if (feature === 'VDJRegion' || feature === 'VDJRegionInFrame') return [0, 7];
+  if (feature === "VDJRegion" || feature === "VDJRegionInFrame") return [0, 7];
   const single = SINGLE_REGION_SPANS[feature];
   if (single) return single;
   const m = /^\{(\w+):(\w+)\}$/.exec(feature);
@@ -68,12 +80,14 @@ const featureSpan = (feature: string): [number, number] | undefined => {
 };
 
 const insufficientFrameworksMessage = (chainLabel: string | undefined, n: number): string => {
-  const where = chainLabel ? ` (${chainLabel} chain)` : '';
-  return `Humanness scoring needs a variable region covering at least ${MIN_FRAMEWORK_REGIONS} `
-    + `of the 4 framework regions, but this dataset's variable region${where} covers only ${n}. `
-    + `This usually means clonotypes were assembled by a short feature such as CDR1:CDR3 `
-    + `(FR2+FR3 only); the score cannot be computed. Re-run clonotyping with full (VDJRegion) `
-    + `or partial (>=${MIN_FRAMEWORK_REGIONS} framework) variable-region assembly.`;
+  const where = chainLabel ? ` (${chainLabel} chain)` : "";
+  return (
+    `Humanness scoring needs a variable region covering at least ${MIN_FRAMEWORK_REGIONS} ` +
+    `of the 4 framework regions, but this dataset's variable region${where} covers only ${n}. ` +
+    `This usually means clonotypes were assembled by a short feature such as CDR1:CDR3 ` +
+    `(FR2+FR3 only); the score cannot be computed. Re-run clonotyping with full (VDJRegion) ` +
+    `or partial (>=${MIN_FRAMEWORK_REGIONS} framework) variable-region assembly.`
+  );
 };
 
 // Minimal shape of a matched amino-acid sequence column needed for detection.
@@ -133,7 +147,7 @@ export function computeCoverageWarnings(
   for (const col of cols) {
     const domain = col.spec.domain ?? {};
     const index = domain[`${chainDomain}/index`];
-    if (index !== undefined && index !== 'primary') continue;
+    if (index !== undefined && index !== "primary") continue;
     const feature = domain[FEATURE_DOMAIN] ?? domain[PROFILER_FEATURE_DOMAIN];
     if (!feature) continue;
     const span = featureSpan(feature);
@@ -155,7 +169,9 @@ export function computeCoverageWarnings(
   for (const [chain, covered] of coveredByChain) {
     const frameworks = frameworksInLongestRun(covered);
     if (frameworks < MIN_FRAMEWORK_REGIONS) {
-      warnings.push(insufficientFrameworksMessage(chain ? chainLabels[chain] : undefined, frameworks));
+      warnings.push(
+        insufficientFrameworksMessage(chain ? chainLabels[chain] : undefined, frameworks),
+      );
     }
   }
   return warnings;
