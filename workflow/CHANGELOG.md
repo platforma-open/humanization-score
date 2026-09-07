@@ -1,5 +1,12 @@
 # @platforma-open/milaboratories.humanness-score.workflow
 
+## 1.2.2
+
+### Patch Changes
+
+- Updated dependencies [b0001ae]
+  - @platforma-open/milaboratories.humanness-score.software@1.0.4
+
 ## 1.2.1
 
 ### Patch Changes
