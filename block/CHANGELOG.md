@@ -1,5 +1,11 @@
 # @platforma-open/milaboratories.humanness-score
 
+## 1.2.2
+
+### Patch Changes
+
+- c776053: Update SDK: PlAgDataTable no longer recreates its grid in an endless loop
+
 ## 1.2.1
 
 ### Patch Changes
