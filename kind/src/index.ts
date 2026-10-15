@@ -5,7 +5,7 @@ import { name, version } from "../package.json" with { type: "json" };
 
 /**
  * This block's init-params contract — everything a user sets by hand: the
- * upstream dataset to score, the subtitle they type, and the memory override.
+ * upstream dataset to score (and the subset it is narrowed to), the subtitle they type, and the memory override.
  *
  * Left out: `coverageWarnings`, which the UI mirrors from the block's own
  * output and is not user input, and the table / histogram view state.
@@ -17,6 +17,8 @@ import { name, version } from "../package.json" with { type: "json" };
  */
 export type BlockParams = {
   inputAnchor?: PlRef;
+  /** A subset column (`pl7.app/isSubset`) the input is restricted to before scoring. */
+  filterRef?: PlRef;
   customBlockLabel?: string;
   mem?: number;
 };
@@ -25,11 +27,16 @@ export type BlockParams = {
 function parseInitializationParams(value: unknown): BlockParams {
   assertParamsObject(value);
 
-  const { inputAnchor, customBlockLabel, mem } = value;
+  const { inputAnchor, filterRef, customBlockLabel, mem } = value;
 
   if (inputAnchor !== undefined && !isPlRef(inputAnchor)) {
     throw new Error(
       "'inputAnchor' must be a reference to an upstream column, written as { block, name }.",
+    );
+  }
+  if (filterRef !== undefined && !isPlRef(filterRef)) {
+    throw new Error(
+      "'filterRef' must be a reference to an upstream subset column, written as { block, name }.",
     );
   }
   if (customBlockLabel !== undefined && typeof customBlockLabel !== "string") {
@@ -39,7 +46,7 @@ function parseInitializationParams(value: unknown): BlockParams {
     throw new Error("'mem' must be a number (gigabytes of memory for the score calculation).");
   }
 
-  return { inputAnchor, customBlockLabel, mem };
+  return { inputAnchor, filterRef, customBlockLabel, mem };
 }
 
 // Identity (`name`/`version`) comes from this package's own `package.json`, so

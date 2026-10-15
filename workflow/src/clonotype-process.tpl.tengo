@@ -86,10 +86,10 @@ self.body(func(args) {
 		label: blockLabel
 	}]
 
-	// makeTrace seeds the provenance chain from the input's "pl7.app/trace"
-	// annotation only; main forwards just that annotation wrapped in a minimal
-	// stub. An empty stub ({}) yields a fresh (empty) trace, same as before.
-	humannessTrace := pSpec.makeTrace({ annotations: params.traceAnnotations }, traceSteps...)
+	// makeTrace seeds the provenance chain from the input's "pl7.app/trace" annotation only: main
+	// forwards it in a minimal stub ({} gives an empty trace), or the filter's spec on a subset run.
+	traceSpec := is_undefined(params.traceSpec) ? { annotations: params.traceAnnotations } : params.traceSpec
+	humannessTrace := pSpec.makeTrace(traceSpec, traceSteps...)
 
 	outputBuilder := pframes.pFrameBuilder()
 	exportPframe := pframes.pFrameBuilder()
@@ -121,6 +121,10 @@ self.body(func(args) {
 		// of scoping it to the block instance: identical results across blocks unify
 		// (dedupe), different results stay distinct (no collision).
 		domain["pl7.app/contentHash"] = contentHash(unit.humannessTable)
+		// A run on a subset says so: its outputs cover only the subset's clonotypes.
+		if !is_undefined(params.subset) {
+			domain["pl7.app/inputSubset"] = params.subset
+		}
 
 		annotations := {
 			"pl7.app/label": label,
