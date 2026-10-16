@@ -8,12 +8,14 @@ import type {
 } from "@platforma-sdk/model";
 import {
   BlockModelV3,
+  DataColumn,
   DataModelBuilder,
   buildDatasetOptions,
   createGlobalPObjectId,
   createPFrameForGraphs,
   createPlDataTableStateV2,
   createPlDataTableV3,
+  discoverTableColumnSnaphots,
   isPColumnSpec,
   legacyColumnSelectorsToPredicate,
 } from "@platforma-sdk/model";
@@ -233,12 +235,19 @@ export const platforma = BlockModelV3.create({ dataModel, kind })
       return undefined;
     }
 
+    // Own scores as primary; scores of other instances of this block (e.g. a full run next to a
+    // subset run) are left out instead of appearing as extra columns.
+    const { primary, secondary } = discoverTableColumnSnaphots(ctx, {
+      anchors: { main: anchorCol.spec },
+      selector: {
+        mode: "enrichment",
+        exclude: { name: [{ type: "exact", value: "pl7.app/humannessScore" }] },
+      },
+    });
     return createPlDataTableV3(ctx, {
       tableState: ctx.data.tableState,
-      columns: {
-        anchors: { main: anchorCol.spec },
-        selector: { mode: "enrichment" },
-      },
+      primaryColumns: [...pCols.map((c) => DataColumn.fromColumn(c)), ...primary],
+      columns: secondary,
     });
   })
 
