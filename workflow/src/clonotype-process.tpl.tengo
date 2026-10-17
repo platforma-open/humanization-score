@@ -86,10 +86,10 @@ self.body(func(args) {
 		label: blockLabel
 	}]
 
-	// makeTrace seeds the provenance chain from the input's "pl7.app/trace" annotation only: main
-	// forwards it in a minimal stub ({} gives an empty trace), or the filter's spec on a subset run.
-	traceSpec := is_undefined(params.traceSpec) ? { annotations: params.traceAnnotations } : params.traceSpec
-	humannessTrace := pSpec.makeTrace(traceSpec, traceSteps...)
+	// makeTrace seeds the provenance chain from the input's "pl7.app/trace"
+	// annotation only; main forwards just that annotation wrapped in a minimal
+	// stub. An empty stub ({}) yields a fresh (empty) trace, same as before.
+	humannessTrace := pSpec.makeTrace({ annotations: params.traceAnnotations }, traceSteps...)
 
 	outputBuilder := pframes.pFrameBuilder()
 	exportPframe := pframes.pFrameBuilder()

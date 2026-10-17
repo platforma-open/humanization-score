@@ -140,11 +140,9 @@ wf.body(func(args) {
 	// Optional subset: only its clonotypes enter the scoring tables. The trace roots in the
 	// filter so downstream labels name it.
 	filterColumn := undefined
-	traceSpec := datasetSpec
 	if !is_undefined(args.inputFilter) {
 		f := columnsWithSequences.getColumn(json.decode(args.inputFilter))
 		filterColumn = { spec: f.spec, data: f.data }
-		traceSpec = f.spec
 	}
 
 	keyAxisSpec := datasetSpec.axesSpec[1]
@@ -436,6 +434,10 @@ wf.body(func(args) {
 			traceAnnotations = { "pl7.app/trace": datasetSpec.annotations["pl7.app/trace"] }
 		}
 	}
+	// Only the trace annotation, so unrelated filter spec edits don't re-run
+	if !is_undefined(filterColumn) {
+		traceAnnotations = { "pl7.app/trace": filterColumn.spec.annotations["pl7.app/trace"] }
+	}
 
 	processParams := {
 		clonotypeKeySpec: clonotypeKeySpec,
@@ -445,7 +447,6 @@ wf.body(func(args) {
 	}
 	// Only for a subset run, so a full-data run keeps exactly its previous params
 	if !is_undefined(filterColumn) {
-		processParams.traceSpec = traceSpec
 		processParams.subset = args.inputFilter
 	}
 	processResult := render.create(processTpl, {
