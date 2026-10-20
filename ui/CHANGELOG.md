@@ -1,5 +1,13 @@
 # @platforma-open/milaboratories.humanness-score.ui
 
+## 1.0.5
+
+### Patch Changes
+
+- 81ac463: Release every package through npm trusted publishing (OIDC) so each package's trusted publisher is used before it expires.
+- Updated dependencies [81ac463]
+  - @platforma-open/milaboratories.humanness-score.model@1.4.1
+
 ## 1.0.4
 
 ### Patch Changes
