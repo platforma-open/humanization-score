@@ -5,6 +5,7 @@ assets := import("@platforma-sdk/workflow-tengo:assets")
 ll := import("@platforma-sdk/workflow-tengo:ll")
 pFrames := import("@platforma-sdk/workflow-tengo:pframes")
 math := import("math")
+json := import("json")
 
 calculateHumannessTpl := assets.importTemplate(":clonotype-humanness")
 processTpl := assets.importTemplate(":clonotype-process")
@@ -116,6 +117,11 @@ wf.prepare(func(args) {
 		}
 	}, "FR4InFrame")
 
+	// Optional subset column picked alongside the dataset (PlDatasetSelector)
+	if !is_undefined(args.inputFilter) {
+		bundleBuilder.addRef(json.decode(args.inputFilter))
+	}
+
 	return {
 		columns: bundleBuilder.build()
 	}
@@ -129,6 +135,14 @@ wf.body(func(args) {
 	baseMemGiB := 16
 	if !is_undefined(args.mem) {
 		baseMemGiB = args.mem
+	}
+
+	// Optional subset: only its clonotypes enter the scoring tables. The trace roots in the
+	// filter so downstream labels name it.
+	filterColumn := undefined
+	if !is_undefined(args.inputFilter) {
+		f := columnsWithSequences.getColumn(json.decode(args.inputFilter))
+		filterColumn = { spec: f.spec, data: f.data }
 	}
 
 	keyAxisSpec := datasetSpec.axesSpec[1]
@@ -259,10 +273,26 @@ wf.body(func(args) {
 	// pairs is a list of {col, header}; headers must match the scorer's expected
 	// names exactly ("VDJRegion aa", or canonical "FR1 aa".."FR4 aa").
 	buildUnitTable := func(pairs) {
-		b := pFrames.parquetFileBuilder()
+		b := undefined
+		add := undefined
+		if is_undefined(filterColumn) {
+			// The plain builder, so unfiltered runs are unchanged
+			b = pFrames.parquetFileBuilder()
+			add = func(i, pair) { b.add(pair.col, {header: pair.header}) }
+		} else {
+			// Every column is its own filtered primary, full-joined: a clonotype may lack some regions
+			b = pFrames.tableBuilder("parquet").setJoinMode("full")
+			add = func(i, pair) {
+				b.addPrimary("col" + string(i), {
+					__isPrimaryRef: "v1",
+					column: pair.col,
+					filter: filterColumn
+				}, {header: pair.header})
+			}
+		}
 		b.setAxisHeader(datasetSpec.axesSpec[1], "clonotypeKey")
-		for pair in pairs {
-			b.add(pair.col, {header: pair.header})
+		for i, pair in pairs {
+			add(i, pair)
 		}
 		b.mem(convMemGiB)
 		b.cpu(1)
@@ -404,16 +434,25 @@ wf.body(func(args) {
 			traceAnnotations = { "pl7.app/trace": datasetSpec.annotations["pl7.app/trace"] }
 		}
 	}
+	// Only the trace annotation, so unrelated filter spec edits don't re-run
+	if !is_undefined(filterColumn) {
+		traceAnnotations = { "pl7.app/trace": filterColumn.spec.annotations["pl7.app/trace"] }
+	}
 
+	processParams := {
+		clonotypeKeySpec: clonotypeKeySpec,
+		isSingleCell: isSingleCell,
+		datasetLabel: datasetLabel,
+		traceAnnotations: traceAnnotations
+	}
+	// Only for a subset run, so a full-data run keeps exactly its previous params
+	if !is_undefined(filterColumn) {
+		processParams.subset = args.inputFilter
+	}
 	processResult := render.create(processTpl, {
 		units: unitsResource,
 		customBlockLabel: args.customBlockLabel,
-		params: smart.createJsonResource({
-			clonotypeKeySpec: clonotypeKeySpec,
-			isSingleCell: isSingleCell,
-			datasetLabel: datasetLabel,
-			traceAnnotations: traceAnnotations
-		})
+		params: smart.createJsonResource(processParams)
 	}, {
 		// mem only affects resource allocation, not the result, so pass it as a
 		// meta input to avoid re-executing the template when memory changes.

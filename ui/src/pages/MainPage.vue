@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import strings from "@milaboratories/strings";
-import type { PlRef } from "@platforma-sdk/model";
+import type { DatasetSelection } from "@platforma-sdk/model";
+import { createDatasetSelection, createPrimaryRef } from "@platforma-sdk/model";
 import {
   PlAccordionSection,
   PlAgDataTableV2,
   PlAlert,
   PlBlockPage,
   PlBtnGhost,
-  PlDropdownRef,
+  PlDatasetSelector,
   PlMaskIcon24,
   PlNumberField,
   PlSlideModal,
@@ -18,10 +19,21 @@ import { useApp } from "../app";
 
 const app = useApp();
 
-function setInput(inputRef?: PlRef) {
-  if (!inputRef) return;
-  app.model.data.inputAnchor = inputRef;
-}
+// The selector picks a dataset, or a dataset narrowed by one of its subset columns.
+// Stored as two refs so blocks saved before filters existed keep their `inputAnchor`.
+const datasetSelection = computed<DatasetSelection | undefined>({
+  get: () => {
+    const { inputAnchor, filterRef } = app.model.data;
+    if (inputAnchor === undefined) return undefined;
+    return createDatasetSelection(createPrimaryRef(inputAnchor, filterRef));
+  },
+  set: (selection) => {
+    // Never cleared, as before: the selector is required and not clearable
+    if (!selection) return;
+    app.model.data.inputAnchor = selection.primary.column;
+    app.model.data.filterRef = selection.primary.filter;
+  },
+});
 
 const tableSettings = usePlDataTableSettingsV2({
   model: () => app.model.outputs.pt,
@@ -79,12 +91,11 @@ watch(
 
   <PlSlideModal v-model="settingsIsShown">
     <template #title>{{ strings.titles.settings }}</template>
-    <PlDropdownRef
-      v-model="app.model.data.inputAnchor"
+    <PlDatasetSelector
+      v-model="datasetSelection"
       :options="app.model.outputs.inputOptions ?? []"
       :label="strings.titles.dataset"
       required
-      @update:model-value="setInput"
     />
 
     <PlAccordionSection v-model="resourceSectionOpen" label="Resource Allocation">

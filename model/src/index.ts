@@ -1,5 +1,6 @@
 import type { GraphMakerState } from "@milaboratories/graph-maker";
 import type {
+  DatasetOption,
   PColumnIdAndSpec,
   PFrameHandle,
   PlDataTableStateV2,
@@ -7,10 +8,16 @@ import type {
 } from "@platforma-sdk/model";
 import {
   BlockModelV3,
+  DataColumn,
   DataModelBuilder,
+  buildDatasetOptions,
+  createGlobalPObjectId,
   createPFrameForGraphs,
   createPlDataTableStateV2,
   createPlDataTableV3,
+  discoverTableColumnSnaphots,
+  isPColumnSpec,
+  legacyColumnSelectorsToPredicate,
 } from "@platforma-sdk/model";
 import { kind } from "@platforma-open/milaboratories.humanness-score.kind";
 import { computeCoverageWarnings } from "./coverage";
@@ -30,9 +37,11 @@ type OldUiState = {
 export type BlockData = {
   customBlockLabel: string;
   inputAnchor?: PlRef;
+  // Subset column picked with the dataset in PlDatasetSelector (e.g. a Repertoire Labeling label).
+  filterRef?: PlRef;
   mem?: number;
   tableState: PlDataTableStateV2;
-  // Distribution of the per-clonotype humanness score across the whole dataset.
+  // Distribution of the per-clonotype humanness score across the scored clonotypes (the dataset, or its subset).
   graphStateHistogram: GraphMakerState;
   // Derived in the `coverageWarnings` output and mirrored here by the UI so
   // `args` (no resultPool access) can block the run. Not user input.
@@ -76,8 +85,7 @@ export const defaultGraphStateHistogram = (): GraphMakerState => ({
   },
 });
 
-// Selectors for the input dataset anchor — shared between `inputOptions`
-// (the dropdown) and `subtitle` (so the default label matches the dataset name).
+// Selectors for the input dataset anchor, used as the `inputOptions` dataset predicate.
 //
 // Humanness scoring applies to ANTIBODIES only, so we offer Ig datasets only:
 //   - bulk: the clonotypeKey axis carries `pl7.app/vdj/chain` set to the
@@ -144,6 +152,13 @@ const inputSelectors = [
   },
 ];
 
+// Key axes of the datasets this block scores: bulk and single-cell clonotypes, and variants.
+const DATASET_KEY_AXES: ReadonlySet<string> = new Set([
+  "pl7.app/vdj/clonotypeKey",
+  "pl7.app/vdj/scClonotypeKey",
+  "pl7.app/variantKey",
+]);
+
 const dataModel = new DataModelBuilder({ kind })
   .from<BlockData>("v1")
   .upgradeLegacy<OldArgs, OldUiState>(({ args, uiState }) => ({
@@ -154,6 +169,7 @@ const dataModel = new DataModelBuilder({ kind })
   .init(({ params }) => ({
     customBlockLabel: params?.customBlockLabel ?? "",
     inputAnchor: params?.inputAnchor,
+    filterRef: params?.filterRef,
     mem: params?.mem,
     tableState: createPlDataTableStateV2(),
     graphStateHistogram: defaultGraphStateHistogram(),
@@ -172,20 +188,40 @@ export const platforma = BlockModelV3.create({ dataModel, kind })
       customBlockLabel: data.customBlockLabel || "",
       inputAnchor: data.inputAnchor,
       mem: data.mem,
+      // The subset's canonical column id, which the workflow stamps as the outputs'
+      // `pl7.app/inputSubset`. Absent without a filter, so unfiltered args are unchanged.
+      ...(data.filterRef !== undefined && {
+        inputFilter: createGlobalPObjectId(data.filterRef.blockId, data.filterRef.name),
+      }),
     };
   })
 
-  // Inverse of the kind's init-params contract: the same three fields `init`
+  // Inverse of the kind's init-params contract: the same four fields `init`
   // consumes. `coverageWarnings` is mirrored from this block's own output
   // rather than typed by the user, and the table / histogram state is view
   // state -- neither is configuration a template carries.
   .templateParams((data) => ({
     inputAnchor: data.inputAnchor,
+    filterRef: data.filterRef,
     customBlockLabel: data.customBlockLabel,
     mem: data.mem,
   }))
 
-  .output("inputOptions", (ctx) => ctx.resultPool.getOptions(inputSelectors))
+  // Ig datasets, each with its subset columns (e.g. Repertoire Labeling labels) as filters.
+  .output(
+    "inputOptions",
+    (ctx): DatasetOption[] =>
+      buildDatasetOptions(ctx, {
+        // The same selectors getOptions took before, so the list and its labels are unchanged
+        primary: legacyColumnSelectorsToPredicate(inputSelectors),
+        // Only subsets keyed by the clonotype axis alone: the score is per clonotype.
+        filter: (spec) =>
+          isPColumnSpec(spec) &&
+          spec.axesSpec.length === 1 &&
+          DATASET_KEY_AXES.has(spec.axesSpec[0].name),
+        requireEnrichments: false,
+      }) ?? [],
+  )
 
   .outputWithStatus("pt", (ctx) => {
     const pCols = ctx.outputs?.resolve("outputHumanness")?.getPColumns();
@@ -199,12 +235,19 @@ export const platforma = BlockModelV3.create({ dataModel, kind })
       return undefined;
     }
 
+    // Only the block's own scores define the rows, so a subset run shows only the subset; the
+    // dataset's columns attach to them. Other instances' scores are left out.
+    const { primary, secondary } = discoverTableColumnSnaphots(ctx, {
+      anchors: { main: anchorCol.spec },
+      selector: {
+        mode: "enrichment",
+        exclude: { name: [{ type: "exact", value: "pl7.app/humannessScore" }] },
+      },
+    });
     return createPlDataTableV3(ctx, {
       tableState: ctx.data.tableState,
-      columns: {
-        anchors: { main: anchorCol.spec },
-        selector: { mode: "enrichment" },
-      },
+      primaryColumns: pCols.map((c) => DataColumn.fromColumn(c)),
+      columns: [...primary, ...secondary],
     });
   })
 

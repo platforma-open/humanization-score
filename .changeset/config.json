@@ -2,7 +2,14 @@
   "$schema": "https://unpkg.com/@changesets/config@3.1.1/schema.json",
   "changelog": "@changesets/cli/changelog",
   "commit": false,
-  "fixed": [],
+  "fixed": [
+    [
+      "@platforma-open/milaboratories.humanness-score",
+      "@platforma-open/milaboratories.humanness-score.model",
+      "@platforma-open/milaboratories.humanness-score.ui",
+      "@platforma-open/milaboratories.humanness-score.workflow"
+    ]
+  ],
   "linked": [],
   "access": "restricted",
   "baseBranch": "main",

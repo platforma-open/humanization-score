@@ -121,6 +121,10 @@ self.body(func(args) {
 		// of scoping it to the block instance: identical results across blocks unify
 		// (dedupe), different results stay distinct (no collision).
 		domain["pl7.app/contentHash"] = contentHash(unit.humannessTable)
+		// A run on a subset says so: its outputs cover only the subset's clonotypes.
+		if !is_undefined(params.subset) {
+			domain["pl7.app/inputSubset"] = params.subset
+		}
 
 		annotations := {
 			"pl7.app/label": label,
