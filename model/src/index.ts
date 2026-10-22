@@ -235,8 +235,8 @@ export const platforma = BlockModelV3.create({ dataModel, kind })
       return undefined;
     }
 
-    // Own scores as primary; scores of other instances of this block (e.g. a full run next to a
-    // subset run) are left out instead of appearing as extra columns.
+    // Only the block's own scores define the rows, so a subset run shows only the subset; the
+    // dataset's columns attach to them. Other instances' scores are left out.
     const { primary, secondary } = discoverTableColumnSnaphots(ctx, {
       anchors: { main: anchorCol.spec },
       selector: {
@@ -246,8 +246,8 @@ export const platforma = BlockModelV3.create({ dataModel, kind })
     });
     return createPlDataTableV3(ctx, {
       tableState: ctx.data.tableState,
-      primaryColumns: [...pCols.map((c) => DataColumn.fromColumn(c)), ...primary],
-      columns: secondary,
+      primaryColumns: pCols.map((c) => DataColumn.fromColumn(c)),
+      columns: [...primary, ...secondary],
     });
   })
 
