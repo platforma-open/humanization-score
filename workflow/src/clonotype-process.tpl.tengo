@@ -108,9 +108,10 @@ self.body(func(args) {
 		if isSingleCell {
 			label = "Humanness Score, " + chainLabel
 			columnId = "humannessScore" + chain
-			domain = {
-				"pl7.app/vdj/scClonotypeChain": chain
-			}
+			// The chain key the input carried: scClonotypeChain (A/B) for single-cell and paired bare
+			// sets, the bare vdj/chain (Heavy/Light) for an scFv — so the score groups with the rest
+			// of that dataset's columns.
+			domain = unit.chainDomain
 			// Heavy (A) sorts before Light (B).
 			if chain != "A" {
 				orderPriority = "99"

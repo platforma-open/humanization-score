@@ -203,28 +203,55 @@ wf.body(func(args) {
 	}
 	rawFr4InFrame := columnsWithSequences.getColumns("FR4InFrame")
 
-	// Chains sit side by side in one frame whenever the columns carry the scClonotypeChain
-	// domain — single-cell, and now a PAIRED bare set on a variantKey axis. That column domain
-	// is the marker, not the axis name, so seed from the name and widen from the columns
-	// (as paratope-clustering:107 and clonotype-clustering:117 do). Left on the axis name, a
-	// paired bare set took the bulk path and had one chain silently dropped.
-	//
-	// Test `/index`, not the bare chain key: the code below requires /index == "primary" and
-	// skips anything else, so a chain key without /index would flip this flag and then filter
-	// every column out. A SINGLE-chain bare set carries no chain domain and stays bulk-shaped.
+	// A column's chain slot, A/B. Read from `pl7.app/vdj/scClonotypeChain` (single-cell and paired
+	// bare sets), else from the bare `pl7.app/vdj/chain` an scFv construct carries (Heavy -> A,
+	// Light -> B). undefined for a column with no chain — bulk, or a single-chain run.
+	chainLetterOf := func(spec) {
+		sc := spec.domain["pl7.app/vdj/scClonotypeChain"]
+		if !is_undefined(sc) {
+			return sc
+		}
+		ch := spec.domain["pl7.app/vdj/chain"]
+		if ch == "Heavy" {
+			return "A"
+		}
+		if ch == "Light" {
+			return "B"
+		}
+		return undefined
+	}
+	// A per-chain column's primary (only) rearrangement. The rank exists only under cell pairing;
+	// a construct (scFv) or a bare set carries none, so an absent rank counts as primary.
+	isPrimaryChainCol := func(spec) {
+		idx := spec.domain["pl7.app/vdj/scClonotypeChain/index"]
+		return is_undefined(idx) || idx == "primary"
+	}
+
 	chainScanCols := vdjRegions
 	for feature in allFeatures {
 		chainScanCols += rawFeatureColumns[feature]
 	}
 	chainScanCols += rawFr4InFrame
 
-	isSingleCell := keyAxisSpec.name == "pl7.app/vdj/scClonotypeKey"
-	if !isSingleCell && keyAxisSpec.name == "pl7.app/variantKey" {
-		for col in chainScanCols {
-			if !is_undefined(col.spec.domain["pl7.app/vdj/scClonotypeChain/index"]) {
-				isSingleCell = true
+	// Chains sit side by side (per-chain scoring) whenever the columns distinguish two chains:
+	// single-cell, a paired bare set (both via scClonotypeChain), or an scFv construct (via the
+	// bare vdj/chain). A single-chain run carries at most one chain letter and stays bulk-shaped.
+	// `scClonotypeOutput` records which key the input used, so each per-chain score column is
+	// emitted under the SAME chain key the input carried (Direction C keeps scFv on vdj/chain).
+	chainLettersSeen := {}
+	scClonotypeOutput := false
+	for col in chainScanCols {
+		cl := chainLetterOf(col.spec)
+		if !is_undefined(cl) {
+			chainLettersSeen[cl] = true
+			if !is_undefined(col.spec.domain["pl7.app/vdj/scClonotypeChain"]) {
+				scClonotypeOutput = true
 			}
 		}
+	}
+	isSingleCell := keyAxisSpec.name == "pl7.app/vdj/scClonotypeKey"
+	if !isSingleCell && len(chainLettersSeen) >= 2 {
+		isSingleCell = true
 	}
 
 	// For single-cell data: keep only primary chains AND order them
@@ -238,11 +265,14 @@ wf.body(func(args) {
 		}
 		byChain := {}
 		for col in cols {
-			if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
+			if !isPrimaryChainCol(col.spec) {
 				continue
 			}
-			sc := col.spec.domain["pl7.app/vdj/scClonotypeChain"]
-			byChain[sc] = col
+			cl := chainLetterOf(col.spec)
+			if is_undefined(cl) {
+				continue
+			}
+			byChain[cl] = col
 		}
 		ordered := []
 		for _, k in ["A", "B"] {
@@ -307,10 +337,10 @@ wf.body(func(args) {
 	chainColumnFor := func(cols, chain) {
 		if isSingleCell {
 			for col in cols {
-				if col.spec.domain["pl7.app/vdj/scClonotypeChain/index"] != "primary" {
+				if !isPrimaryChainCol(col.spec) {
 					continue
 				}
-				if col.spec.domain["pl7.app/vdj/scClonotypeChain"] == chain {
+				if chainLetterOf(col.spec) == chain {
 					return col
 				}
 			}
@@ -356,11 +386,17 @@ wf.body(func(args) {
 				continue
 			}
 			chainLabel := (chain == "A" ? "Heavy" : "Light")
+			// Emit the score column under the chain key the input used: scClonotypeChain (A/B) for
+			// single-cell and paired bare sets, the bare vdj/chain (Heavy/Light) for an scFv.
+			chainDomain := scClonotypeOutput ?
+				{ "pl7.app/vdj/scClonotypeChain": chain } :
+				{ "pl7.app/vdj/chain": chainLabel }
 			units += [{
 				id: "humannessScore" + chain,
 				table: buildUnitTable(pairs),
 				chain: chain,
-				chainLabel: chainLabel
+				chainLabel: chainLabel,
+				chainDomain: chainDomain
 			}]
 		}
 	} else {
@@ -418,6 +454,7 @@ wf.body(func(args) {
 		if !is_undefined(unit.chain) {
 			unitValue.chain = unit.chain
 			unitValue.chainLabel = unit.chainLabel
+			unitValue.chainDomain = unit.chainDomain
 		}
 		unitsBuilder.add(unit.id, unitValue)
 	}
