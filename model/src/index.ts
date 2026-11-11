@@ -229,7 +229,15 @@ export const platforma = BlockModelV3.create({ dataModel, kind })
       return undefined;
     }
 
-    const anchorCol = pCols.find((c) => c.spec.domain?.[CHAIN_DOMAIN] === CHAIN_HEAVY) ?? pCols[0];
+    // The Heavy column anchors the table. Heavy is CHAIN_DOMAIN "A" for single-cell / bare-set
+    // output, or the bare pl7.app/vdj/chain "Heavy" for an scFv (Direction C). Fall back to the
+    // first column when neither is present (a bulk run has a single chainless score).
+    const anchorCol =
+      pCols.find(
+        (c) =>
+          c.spec.domain?.[CHAIN_DOMAIN] === CHAIN_HEAVY ||
+          c.spec.domain?.["pl7.app/vdj/chain"] === "Heavy",
+      ) ?? pCols[0];
 
     if (anchorCol === undefined) {
       return undefined;

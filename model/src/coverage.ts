@@ -152,7 +152,12 @@ export function computeCoverageWarnings(
     if (!feature) continue;
     const span = featureSpan(feature);
     if (!span) continue;
-    const chain = domain[chainDomain];
+    // Chain slot: `chainDomain` (scClonotypeChain, value A/B) for single-cell and paired bare sets,
+    // else an scFv's bare `pl7.app/vdj/chain` mapped Heavy->A / Light->B so `chainLabels` applies.
+    // A bulk axis chain key (IGHeavy/IGLight) is NOT mapped, so bulk stays a single chainless group.
+    const vdjChain = domain["pl7.app/vdj/chain"];
+    const chain =
+      domain[chainDomain] ?? (vdjChain === "Heavy" ? "A" : vdjChain === "Light" ? "B" : undefined);
     let covered = coveredByChain.get(chain);
     if (!covered) {
       covered = CANONICAL_REGIONS.map(() => false);
