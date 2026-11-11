@@ -1,5 +1,11 @@
 # @platforma-open/milaboratories.humanness-score.model
 
+## 1.5.1
+
+### Patch Changes
+
+- 0570df4: Amplicon scFV support
+
 ## 1.5.0
 
 ### Minor Changes
