@@ -43,9 +43,6 @@ export type BlockData = {
   tableState: PlDataTableStateV2;
   // Distribution of the per-clonotype humanness score across the scored clonotypes (the dataset, or its subset).
   graphStateHistogram: GraphMakerState;
-  // Derived in the `coverageWarnings` output and mirrored here by the UI so
-  // `args` (no resultPool access) can block the run. Not user input.
-  coverageWarnings?: string[];
 };
 
 // Humanness score column name emitted by `clonotype-process.tpl.tengo`.
@@ -178,9 +175,12 @@ const dataModel = new DataModelBuilder({ kind })
 export const platforma = BlockModelV3.create({ dataModel, kind })
 
   .args((data) => {
+    // Only what the user set decides whether the block can run. Framework coverage is NOT
+    // checked here: `args` sees stored data alone, so a check would have to be mirrored into
+    // the data by the block's window, and a block nobody opened (created from a template,
+    // started by Run All) could then never run. An under-covered dataset runs and scores
+    // null, which the workflow is built for; the `coverageWarnings` output says why.
     if (data.inputAnchor == null) throw new Error("Input anchor is required");
-    if (data.coverageWarnings == null) throw new Error("Computing coverage");
-    if (data.coverageWarnings.length > 0) throw new Error(data.coverageWarnings[0]);
 
     return {
       // Empty when unset; the workflow falls back to the input dataset name so
@@ -197,9 +197,8 @@ export const platforma = BlockModelV3.create({ dataModel, kind })
   })
 
   // Inverse of the kind's init-params contract: the same four fields `init`
-  // consumes. `coverageWarnings` is mirrored from this block's own output
-  // rather than typed by the user, and the table / histogram state is view
-  // state -- neither is configuration a template carries.
+  // consumes. The table / histogram state is view state, not configuration a
+  // template carries.
   .templateParams((data) => ({
     inputAnchor: data.inputAnchor,
     filterRef: data.filterRef,
