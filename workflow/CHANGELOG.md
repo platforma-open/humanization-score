@@ -1,5 +1,7 @@
 # @platforma-open/milaboratories.humanness-score.workflow
 
+## 1.5.2
+
 ## 1.5.1
 
 ### Patch Changes

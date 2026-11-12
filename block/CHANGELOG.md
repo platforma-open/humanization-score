@@ -1,5 +1,11 @@
 # @platforma-open/milaboratories.humanness-score
 
+## 1.5.2
+
+### Patch Changes
+
+- 3b561d5: Point the block's repository link to the current GitHub repository.
+
 ## 1.5.1
 
 ### Patch Changes
