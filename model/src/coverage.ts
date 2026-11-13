@@ -3,8 +3,9 @@
 // The humanness scorer needs a variable region covering at least 3 of the 4
 // framework regions (FR1..FR4). This module decides, from the per-chain
 // amino-acid sequence columns available in the result pool, whether a dataset
-// clears that bar — so the run can be blocked up front for under-covered
-// inputs (e.g. clonotypes assembled by a short feature such as CDR1:CDR3).
+// clears that bar — so the block can say up front why an under-covered input
+// (e.g. clonotypes assembled by a short feature such as CDR1:CDR3) will not be
+// scored. It does not stop the run: the scorer applies the same bar per row.
 export const FEATURE_DOMAIN = "pl7.app/vdj/feature";
 
 // synthetic-repertoire-profiler keys the region on `pl7.app/feature` instead, on

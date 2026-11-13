@@ -5,12 +5,10 @@ import {
 import { defineAppV3 } from "@platforma-sdk/ui-vue";
 import HistogramPage from "./pages/HistogramPage.vue";
 import MainPage from "./pages/MainPage.vue";
-import { syncCoverageWargings } from "./syncCoverageWargings.ts";
 
 export const sdkPlugin = defineAppV3(platforma, (app) => {
   app.model.data.customBlockLabel ??= "";
   app.model.data.graphStateHistogram ??= defaultGraphStateHistogram();
-  syncCoverageWargings(app.model);
 
   return {
     routes: {
